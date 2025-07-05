@@ -1,8 +1,27 @@
 import React from 'react';
+import Header from '../components/Header';
 import ServiceCard from '../components/ServiceCard';
+import { useAuth } from '../context/AuthContext';
 
 function Home() {
-  const siteName = "Pinsart Déco";
+  const { user } = useAuth();
+
+  const getUserRole = () => {
+    return user?.user_metadata?.role || 'client';
+  };
+
+  const getDashboardLink = () => {
+    const role = getUserRole();
+    switch (role) {
+      case 'admin':
+        return '/admin';
+      case 'employee':
+        return '/employee-dashboard';
+      case 'client':
+      default:
+        return '/dashboard';
+    }
+  };
 
   return (
     <div style={{ 
@@ -10,99 +29,12 @@ function Home() {
       minHeight: '100vh',
       backgroundColor: '#f8fafc'
     }}>
-      {/* Header avec navigation */}
-      <header style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white',
-        padding: '30px 20px',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
-      }}>
-        <div style={{ 
-          maxWidth: '1200px', 
-          margin: '0 auto',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap'
-        }}>
-          {/* Logo et titre */}
-          <div>
-            <h1 style={{ 
-              fontSize: '36px',
-              fontWeight: 'bold',
-              margin: '0 0 10px 0',
-              textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-            }}>
-              {siteName}
-            </h1>
-            <p style={{ 
-              fontSize: '18px',
-              margin: 0,
-              opacity: 0.9
-            }}>
-              Votre partenaire pour la décoration et la rénovation
-            </p>
-          </div>
-          
-          {/* Navigation */}
-          <div style={{ 
-            display: 'flex',
-            gap: '15px',
-            marginTop: '15px'
-          }}>
-            <a 
-              href="/register" 
-              style={{ 
-                color: 'white', 
-                textDecoration: 'none', 
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                padding: '12px 24px',
-                borderRadius: '25px',
-                fontWeight: '600',
-                transition: 'all 0.3s ease',
-                border: '2px solid rgba(255,255,255,0.3)'
-              }}
-              onMouseOver={(e) => {
-                const target = e.target as HTMLElement;
-                target.style.backgroundColor = 'rgba(255,255,255,0.3)';
-                target.style.transform = 'translateY(-2px)';
-              }}
-              onMouseOut={(e) => {
-                const target = e.target as HTMLElement;
-                target.style.backgroundColor = 'rgba(255,255,255,0.2)';
-                target.style.transform = 'translateY(0)';
-              }}
-            >
-              S'inscrire
-            </a>
-            <a 
-              href="/login" 
-              style={{ 
-                color: '#667eea', 
-                textDecoration: 'none',
-                backgroundColor: 'white',
-                padding: '12px 24px',
-                borderRadius: '25px',
-                fontWeight: '600',
-                transition: 'all 0.3s ease',
-                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
-              }}
-              onMouseOver={(e) => {
-                const target = e.target as HTMLElement;
-                target.style.transform = 'translateY(-2px)';
-                target.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.15)';
-              }}
-              onMouseOut={(e) => {
-                const target = e.target as HTMLElement;
-                target.style.transform = 'translateY(0)';
-                target.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
-              }}
-            >
-              Se connecter
-            </a>
-          </div>
-        </div>
-      </header>
+      {/* Header */}
+      <Header 
+        siteName="Pinsart Déco" 
+        pageTitle="Votre partenaire pour la décoration et la rénovation"
+        showNavigation={true}
+      />
 
       {/* Section héro */}
       <section style={{
@@ -128,38 +60,68 @@ function Home() {
           }}>
             Connectez-vous avec des professionnels qualifiés pour tous vos projets de décoration et rénovation
           </p>
-          <a 
-            href="/register"
-            style={{
-              display: 'inline-block',
-              backgroundColor: 'white',
-              color: '#f5576c',
-              padding: '18px 36px',
-              borderRadius: '30px',
-              textDecoration: 'none',
-              fontWeight: 'bold',
-              fontSize: '18px',
-              boxShadow: '0 8px 25px rgba(0, 0, 0, 0.2)',
-              transition: 'all 0.3s ease'
-            }}
-            onMouseOver={(e) => {
-              const target = e.target as HTMLElement;
-              target.style.transform = 'translateY(-3px)';
-              target.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.3)';
-            }}
-            onMouseOut={(e) => {
-              const target = e.target as HTMLElement;
-              target.style.transform = 'translateY(0)';
-              target.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
-            }}
-          >
-            Commencer maintenant
-          </a>
+          {user ? (
+            <a 
+              href={getDashboardLink()}
+              style={{
+                display: 'inline-block',
+                backgroundColor: 'white',
+                color: '#f5576c',
+                padding: '18px 36px',
+                borderRadius: '30px',
+                textDecoration: 'none',
+                fontWeight: 'bold',
+                fontSize: '18px',
+                boxShadow: '0 8px 25px rgba(0, 0, 0, 0.2)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseOver={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.transform = 'translateY(-3px)';
+                target.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.3)';
+              }}
+              onMouseOut={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.transform = 'translateY(0)';
+                target.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
+              }}
+            >
+              Accéder à mon espace
+            </a>
+          ) : (
+            <a 
+              href="/register"
+              style={{
+                display: 'inline-block',
+                backgroundColor: 'white',
+                color: '#f5576c',
+                padding: '18px 36px',
+                borderRadius: '30px',
+                textDecoration: 'none',
+                fontWeight: 'bold',
+                fontSize: '18px',
+                boxShadow: '0 8px 25px rgba(0, 0, 0, 0.2)',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseOver={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.transform = 'translateY(-3px)';
+                target.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.3)';
+              }}
+              onMouseOut={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.transform = 'translateY(0)';
+                target.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
+              }}
+            >
+              Commencer maintenant
+            </a>
+          )}
         </div>
       </section>
 
       {/* Section services */}
-      <main style={{
+      <main id="services" style={{
         padding: '80px 20px',
         maxWidth: '1200px',
         margin: '0 auto'
@@ -205,7 +167,7 @@ function Home() {
       </main>
 
       {/* Section comment ça marche */}
-      <section style={{
+      <section id="comment" style={{
         backgroundColor: 'white',
         padding: '80px 20px',
         borderTop: '1px solid #e5e7eb'
@@ -305,7 +267,7 @@ function Home() {
       </section>
 
       {/* Footer */}
-      <footer style={{
+      <footer id="contact" style={{
         backgroundColor: '#1f2937',
         color: 'white',
         padding: '40px 20px',

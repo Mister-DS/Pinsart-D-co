@@ -1,426 +1,259 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../supabase';
 
-function VerifyEmail() {
-  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'expired'>('loading');
+const VerifyEmail: React.FC = () => {
   const [message, setMessage] = useState('');
-  const [countdown, setCountdown] = useState(5);
-  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const handleEmailVerification = async () => {
-      try {
-        // Récupérer les paramètres de l'URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-        const type = urlParams.get('type');
-        const access_token = urlParams.get('access_token');
-        const refresh_token = urlParams.get('refresh_token');
-
-        console.log('📧 Verification params:', { token, type, access_token: !!access_token });
-
-        if (type === 'signup' || access_token) {
-          // La vérification se fait automatiquement par Supabase
-          // quand l'utilisateur clique sur le lien dans l'email
-          setStatus('success');
-          setMessage('Votre email a été vérifié avec succès !');
-          
-          // Démarrer le countdown pour redirection
-          const countdownInterval = setInterval(() => {
-            setCountdown(prev => {
-              if (prev <= 1) {
-                clearInterval(countdownInterval);
-                window.location.href = '/login';
-                return 0;
-              }
-              return prev - 1;
-            });
-          }, 1000);
-
-          return () => clearInterval(countdownInterval);
-
-        } else if (type === 'recovery') {
-          // Gestion de la récupération de mot de passe
-          setStatus('success');
-          setMessage('Vous pouvez maintenant réinitialiser votre mot de passe.');
-          setTimeout(() => {
-            window.location.href = '/reset-password';
-          }, 2000);
-        } else {
-          setStatus('error');
-          setMessage('Lien de vérification invalide ou expiré.');
-        }
-      } catch (error) {
-        console.error('💥 Verification error:', error);
-        setStatus('error');
-        setMessage('Une erreur est survenue lors de la vérification.');
-      }
-    };
-
-    handleEmailVerification();
-  }, []);
-
-  const resendVerificationEmail = async () => {
-    if (!user?.email) {
-      setMessage('Impossible de renvoyer l\'email. Veuillez vous réinscrire.');
-      setTimeout(() => {
-        window.location.href = '/register';
-      }, 2000);
+    // Si l'utilisateur n'est pas connecté, rediriger vers login
+    if (!user) {
+      navigate('/login');
       return;
     }
 
+    // Si l'email est déjà vérifié, rediriger vers dashboard
+    if (user.email_confirmed_at) {
+      navigate('/dashboard');
+      return;
+    }
+  }, [user, navigate]);
+
+  const handleResendVerification = async () => {
+    if (!user?.email) return;
+
+    setLoading(true);
+    setMessage('');
+
     try {
-      setMessage('Email de vérification renvoyé ! Vérifiez votre boîte mail.');
-      // Note: Dans un vrai projet, tu aurais une fonction pour renvoyer l'email
-      setTimeout(() => {
-        window.location.href = '/register';
-      }, 3000);
-    } catch (error) {
-      setMessage('Erreur lors de l\'envoi de l\'email de vérification.');
+      // Renvoyer l'email de vérification
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: user.email
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setMessage('✅ Email de vérification renvoyé ! Vérifiez votre boîte email.');
+    } catch (error: any) {
+      console.error('Erreur lors du renvoi:', error);
+      setMessage(`❌ Erreur : ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const goToLogin = () => {
-    window.location.href = '/login';
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Erreur déconnexion:', error);
+    }
   };
 
-  const goToRegister = () => {
-    window.location.href = '/register';
-  };
+  if (!user) {
+    return null; // Le useEffect redirigera
+  }
 
   return (
     <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       display: 'flex',
-      alignItems: 'center',
       justifyContent: 'center',
+      alignItems: 'center',
       padding: '20px',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     }}>
       <div style={{
         backgroundColor: 'white',
-        padding: '60px 50px',
-        borderRadius: '24px',
-        boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15)',
-        textAlign: 'center',
-        maxWidth: '500px',
+        padding: '50px',
+        borderRadius: '20px',
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)',
         width: '100%',
-        position: 'relative',
-        overflow: 'hidden'
+        maxWidth: '500px',
+        textAlign: 'center'
       }}>
-        
-        {/* Effet de fond */}
+        {/* Icône email */}
         <div style={{
-          position: 'absolute',
-          top: '-50%',
-          left: '-50%',
-          width: '200%',
-          height: '200%',
-          background: 'radial-gradient(circle, rgba(102, 126, 234, 0.05) 0%, transparent 70%)',
-          pointerEvents: 'none'
-        }} />
-
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          {/* Loading */}
-          {status === 'loading' && (
-            <>
-              <div style={{
-                width: '80px',
-                height: '80px',
-                border: '6px solid #f1f5f9',
-                borderTop: '6px solid #667eea',
-                borderRadius: '50%',
-                animation: 'spin 1.5s linear infinite',
-                margin: '0 auto 30px auto'
-              }}></div>
-              <h1 style={{
-                fontSize: '28px',
-                fontWeight: 'bold',
-                color: '#1f2937',
-                marginBottom: '15px'
-              }}>
-                Vérification en cours...
-              </h1>
-              <p style={{
-                color: '#6b7280',
-                fontSize: '16px',
-                lineHeight: '1.6'
-              }}>
-                Nous vérifions votre adresse email. Veuillez patienter quelques instants.
-              </p>
-            </>
-          )}
-
-          {/* Success */}
-          {status === 'success' && (
-            <>
-              <div style={{
-                width: '100px',
-                height: '100px',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 30px auto',
-                fontSize: '48px',
-                boxShadow: '0 20px 40px rgba(16, 185, 129, 0.3)',
-                animation: 'pulse 2s infinite'
-              }}>
-                ✅
-              </div>
-              <h1 style={{
-                fontSize: '32px',
-                fontWeight: 'bold',
-                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                marginBottom: '15px'
-              }}>
-                Email vérifié !
-              </h1>
-              <p style={{
-                color: '#6b7280',
-                fontSize: '18px',
-                lineHeight: '1.6',
-                marginBottom: '30px'
-              }}>
-                {message}
-              </p>
-              
-              {/* Countdown et redirection */}
-              <div style={{
-                backgroundColor: '#f8fafc',
-                padding: '20px',
-                borderRadius: '12px',
-                marginBottom: '30px',
-                border: '1px solid #e2e8f0'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
-                  color: '#667eea',
-                  fontSize: '16px',
-                  fontWeight: '600'
-                }}>
-                  <div style={{
-                    width: '20px',
-                    height: '20px',
-                    border: '3px solid #667eea',
-                    borderTop: '3px solid transparent',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite'
-                  }}></div>
-                  Redirection vers la connexion dans {countdown}s...
-                </div>
-              </div>
-
-              <div style={{
-                display: 'flex',
-                gap: '15px',
-                justifyContent: 'center',
-                flexWrap: 'wrap'
-              }}>
-                <button
-                  onClick={goToLogin}
-                  style={{
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '12px 24px',
-                    borderRadius: '25px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
-                  }}
-                  onMouseOver={(e) => {
-                    const target = e.target as HTMLElement;
-                    target.style.transform = 'translateY(-2px)';
-                    target.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.5)';
-                  }}
-                  onMouseOut={(e) => {
-                    const target = e.target as HTMLElement;
-                    target.style.transform = 'translateY(0)';
-                    target.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
-                  }}
-                >
-                  🔑 Se connecter maintenant
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* Error */}
-          {status === 'error' && (
-            <>
-              <div style={{
-                width: '100px',
-                height: '100px',
-                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 30px auto',
-                fontSize: '48px',
-                boxShadow: '0 20px 40px rgba(239, 68, 68, 0.3)'
-              }}>
-                ❌
-              </div>
-              <h1 style={{
-                fontSize: '28px',
-                fontWeight: 'bold',
-                color: '#dc2626',
-                marginBottom: '15px'
-              }}>
-                Erreur de vérification
-              </h1>
-              <p style={{
-                color: '#6b7280',
-                fontSize: '16px',
-                lineHeight: '1.6',
-                marginBottom: '30px'
-              }}>
-                {message}
-              </p>
-
-              <div style={{
-                backgroundColor: '#fef2f2',
-                padding: '20px',
-                borderRadius: '12px',
-                marginBottom: '30px',
-                border: '1px solid #fecaca'
-              }}>
-                <h3 style={{ 
-                  color: '#991b1b', 
-                  fontSize: '16px', 
-                  fontWeight: '600', 
-                  margin: '0 0 10px 0' 
-                }}>
-                  💡 Que faire ?
-                </h3>
-                <ul style={{ 
-                  color: '#7f1d1d', 
-                  fontSize: '14px', 
-                  margin: 0, 
-                  paddingLeft: '20px',
-                  textAlign: 'left',
-                  lineHeight: '1.5'
-                }}>
-                  <li>Vérifiez que le lien n'a pas expiré</li>
-                  <li>Essayez de demander un nouvel email</li>
-                  <li>Contactez le support si le problème persiste</li>
-                </ul>
-              </div>
-
-              <div style={{
-                display: 'flex',
-                gap: '15px',
-                justifyContent: 'center',
-                flexWrap: 'wrap'
-              }}>
-                <button
-                  onClick={resendVerificationEmail}
-                  style={{
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '12px 24px',
-                    borderRadius: '25px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
-                  }}
-                >
-                  📧 Renvoyer l'email
-                </button>
-                <button
-                  onClick={goToRegister}
-                  style={{
-                    backgroundColor: 'transparent',
-                    color: '#667eea',
-                    border: '2px solid #667eea',
-                    padding: '10px 24px',
-                    borderRadius: '25px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease'
-                  }}
-                  onMouseOver={(e) => {
-                    const target = e.target as HTMLElement;
-                    target.style.backgroundColor = '#667eea';
-                    target.style.color = 'white';
-                  }}
-                  onMouseOut={(e) => {
-                    const target = e.target as HTMLElement;
-                    target.style.backgroundColor = 'transparent';
-                    target.style.color = '#667eea';
-                  }}
-                >
-                  🔄 Nouvelle inscription
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* Lien retour */}
-          <div style={{
-            marginTop: '40px',
-            paddingTop: '20px',
-            borderTop: '1px solid #e5e7eb'
-          }}>
-            <a
-              href="/"
-              style={{
-                color: '#9ca3af',
-                textDecoration: 'none',
-                fontSize: '14px',
-                transition: 'color 0.3s ease',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px'
-              }}
-              onMouseOver={(e) => {
-                const target = e.target as HTMLElement;
-                target.style.color = '#667eea';
-              }}
-              onMouseOut={(e) => {
-                const target = e.target as HTMLElement;
-                target.style.color = '#9ca3af';
-              }}
-            >
-              ← Retour à l'accueil
-            </a>
-          </div>
+          width: '80px',
+          height: '80px',
+          backgroundColor: '#f0f4ff',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 30px'
+        }}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="#667eea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <polyline points="22,6 12,13 2,6" stroke="#667eea" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </div>
 
-        {/* Animations CSS */}
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-            
-            @keyframes pulse {
-              0%, 100% { transform: scale(1); }
-              50% { transform: scale(1.05); }
-            }
-            
-            @keyframes fadeIn {
-              0% { opacity: 0; transform: translateY(20px); }
-              100% { opacity: 1; transform: translateY(0); }
-            }
-          `
-        }} />
+        <h1 style={{
+          fontSize: '28px',
+          fontWeight: 'bold',
+          color: '#1f2937',
+          marginBottom: '15px'
+        }}>
+          Vérifiez votre email
+        </h1>
+
+        <p style={{
+          color: '#6b7280',
+          fontSize: '16px',
+          lineHeight: '1.6',
+          marginBottom: '20px'
+        }}>
+          Nous avons envoyé un email de confirmation à<br/>
+          <strong style={{ color: '#667eea' }}>{user.email}</strong>
+        </p>
+
+        <p style={{
+          color: '#6b7280',
+          fontSize: '14px',
+          lineHeight: '1.5',
+          marginBottom: '30px'
+        }}>
+          Cliquez sur le lien dans l'email pour activer votre compte. 
+          Si vous ne voyez pas l'email, vérifiez votre dossier spam.
+        </p>
+
+        {message && (
+          <div style={{
+            padding: '15px',
+            borderRadius: '12px',
+            marginBottom: '25px',
+            backgroundColor: message.includes('✅') ? '#d1fae5' : '#fee2e2',
+            color: message.includes('✅') ? '#065f46' : '#dc2626',
+            border: `1px solid ${message.includes('✅') ? '#a7f3d0' : '#fca5a5'}`,
+            fontSize: '14px'
+          }}>
+            {message}
+          </div>
+        )}
+
+        <div style={{ marginBottom: '30px' }}>
+          <button
+            onClick={handleResendVerification}
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '15px',
+              background: loading
+                ? '#9ca3af'
+                : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.3s ease',
+              boxShadow: loading ? 'none' : '0 4px 15px rgba(102, 126, 234, 0.4)',
+              marginBottom: '15px'
+            }}
+          >
+            {loading ? (
+              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{
+                  width: '20px',
+                  height: '20px',
+                  border: '2px solid white',
+                  borderTop: '2px solid transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  marginRight: '10px'
+                }}></span>
+                Envoi en cours...
+              </span>
+            ) : (
+              'Renvoyer l\'email de vérification'
+            )}
+          </button>
+
+          <button
+            onClick={handleSignOut}
+            style={{
+              width: '100%',
+              padding: '15px',
+              background: 'transparent',
+              color: '#6b7280',
+              border: '2px solid #e5e7eb',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            Se déconnecter
+          </button>
+        </div>
+
+        <div style={{
+          padding: '20px',
+          backgroundColor: '#f8fafc',
+          borderRadius: '12px',
+          border: '1px solid #e5e7eb'
+        }}>
+          <h3 style={{
+            fontSize: '16px',
+            fontWeight: '600',
+            color: '#374151',
+            marginBottom: '10px'
+          }}>
+            Vous ne recevez pas l'email ?
+          </h3>
+          <ul style={{
+            textAlign: 'left',
+            color: '#6b7280',
+            fontSize: '14px',
+            lineHeight: '1.5',
+            paddingLeft: '20px',
+            margin: 0
+          }}>
+            <li>Vérifiez votre dossier spam/courrier indésirable</li>
+            <li>Assurez-vous que l'adresse email est correcte</li>
+            <li>Patientez quelques minutes (l'email peut prendre du temps)</li>
+            <li>Cliquez sur "Renvoyer l'email" ci-dessus</li>
+          </ul>
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: '30px' }}>
+          <Link
+            to="/"
+            style={{
+              color: '#9ca3af',
+              textDecoration: 'none',
+              fontSize: '14px',
+              display: 'inline-flex',
+              alignItems: 'center'
+            }}
+          >
+            ← Retour à l'accueil
+          </Link>
+        </div>
       </div>
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `
+      }} />
     </div>
   );
-}
+};
 
 export default VerifyEmail;

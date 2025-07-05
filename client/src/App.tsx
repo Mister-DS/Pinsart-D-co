@@ -1,33 +1,32 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import ProtectedRoute from './components/auth/ProtectedRoute';
-import Landing from './pages/Landing';
+
+// Pages
 import Home from './pages/Home';
-import Register from './pages/Register';
 import Login from './pages/Login';
-import VerifyEmail from './pages/VerifyEmail';
-import ClientDashboard from './pages/ClientDashboard';
-import './App.css';
+import Register from './pages/Register';
+import AdminDashboard from './pages/AdminDashboard';   // Importation du Dashboard Admin
+// import EmployeeDashboard from './pages/EmployeeDashboard'; // Décommentez lorsque vous créerez ce fichier
 
 function App() {
   return (
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/register" element={<Register />} />
+          {/* Page d'accueil */}
+          <Route path="/" element={<Home />} />
+          
+          {/* Authentification */}
           <Route path="/login" element={<Login />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute requiredRole="client">
-                <ClientDashboard />
-              </ProtectedRoute>
-            } 
-          />
+          <Route path="/register" element={<Register />} />
+          
+          {/* Dashboards */}
+          <Route path="/admin" element={<AdminDashboard />} />     {/* Route pour le Dashboard Admin */}
+          {/* <Route path="/employee-dashboard" element={<EmployeeDashboard />} /> */} {/* Décommentez pour le Dashboard Employé */}
+          
+          {/* Route par défaut - redirige vers home */}
+          <Route path="*" element={<Home />} />
         </Routes>
       </Router>
     </AuthProvider>
