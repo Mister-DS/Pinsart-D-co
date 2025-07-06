@@ -1,0 +1,91 @@
+import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
+
+const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    const { data, error } = await signIn(email, password);
+
+    if (error) {
+      setError('Email ou mot de passe incorrect');
+    } else {
+      navigate('/dashboard');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px' }}>
+      <h2>Connexion</h2>
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: '15px' }}>
+          <label>Email :</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+          />
+        </div>
+        
+        <div style={{ marginBottom: '15px' }}>
+          <label>Mot de passe :</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+          />
+        </div>
+
+        {error && (
+          <div style={{ color: 'red', marginBottom: '15px' }}>
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            width: '100%',
+            padding: '10px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: loading ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {loading ? 'Connexion...' : 'Se connecter'}
+        </button>
+      </form>
+
+      <p style={{ textAlign: 'center', marginTop: '20px' }}>
+        Pas de compte ? <Link to="/register">S'inscrire</Link>
+      </p>
+
+      <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+        <strong>Comptes de test :</strong><br />
+        Admin : dierickxsimon198@gmail.com / admin123!<br />
+        Client : client@test.com / admin123!<br />
+        Pro : pro@test.com / admin123!
+      </div>
+    </div>
+  );
+};
+
+export default Login;
