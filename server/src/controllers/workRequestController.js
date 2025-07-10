@@ -3,6 +3,8 @@ const { supabase } = require('../config/supabase');
 // Créer une nouvelle demande de travaux
 const createWorkRequest = async (req, res) => {
   try {
+    console.log('Données reçues:', req.body); // Debug
+
     const {
       title,
       description,
@@ -10,33 +12,52 @@ const createWorkRequest = async (req, res) => {
       budget_min,
       budget_max,
       desired_date,
-      location_city
+      urgency,
+      location_address,
+      location_city,
+      location_postal_code,
+      images,
+      notes
     } = req.body;
 
     const userId = req.user.id;
 
-    // Validation des données
+    // Validation des données obligatoires
     if (!title || !description || !category) {
       return res.status(400).json({ 
         message: 'Titre, description et catégorie sont requis' 
       });
     }
 
+    if (!location_city) {
+      return res.status(400).json({ 
+        message: 'La ville est obligatoire' 
+      });
+    }
+
+    // Préparer les données à insérer
+    const insertData = {
+      user_id: userId,
+      title: title.trim(),
+      description: description.trim(),
+      category,
+      budget_min: budget_min ? parseFloat(budget_min) : null,
+      budget_max: budget_max ? parseFloat(budget_max) : null,
+      desired_date: desired_date || null,
+      urgency: urgency || 'medium',
+      status: 'pending',
+      location_address: location_address ? location_address.trim() : null,
+      location_city: location_city.trim(),
+      location_postal_code: location_postal_code ? location_postal_code.trim() : null,
+      images: images || null, // Array d'URLs ou null
+      notes: notes ? notes.trim() : null
+    };
+
+    console.log('Données à insérer:', insertData); // Debug
+
     const { data, error } = await supabase
       .from('work_requests')
-      .insert([
-        {
-          user_id: userId,
-          title,
-          description,
-          category,
-          budget_min: budget_min ? parseFloat(budget_min) : null,
-          budget_max: budget_max ? parseFloat(budget_max) : null,
-          desired_date: desired_date || null,
-          location_city,
-          status: 'pending'
-        }
-      ])
+      .insert([insertData])
       .select()
       .single();
 
@@ -44,6 +65,8 @@ const createWorkRequest = async (req, res) => {
       console.error('Erreur Supabase:', error);
       throw error;
     }
+
+    console.log('Demande créée:', data); // Debug
 
     res.status(201).json({
       message: 'Demande de travaux créée avec succès',
@@ -53,7 +76,8 @@ const createWorkRequest = async (req, res) => {
     console.error('Erreur lors de la création de la demande:', error);
     res.status(500).json({ 
       message: 'Erreur serveur', 
-      error: error.message 
+      error: error.message,
+      details: error.details || null
     });
   }
 };
@@ -195,7 +219,8 @@ const testController = async (req, res) => {
         id: req.user.id,
         email: req.user.email,
         profile: profile || null
-      }
+      },
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('Erreur dans testController:', error);

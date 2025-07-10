@@ -13,7 +13,7 @@ const Dashboard = () => {
     if (user) {
       fetchUserProfile();
     }
-  }, [user]);
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchUserProfile = async () => {
     try {
@@ -114,20 +114,51 @@ const Dashboard = () => {
           {userProfile?.role === 'professional' ? 'Voir les demandes' : 'Créer une demande de travaux'}
         </Link>
 
-        {userProfile?.role === 'admin' && (
+        {userProfile?.role === 'professional' && (
           <Link 
-            to="/admin"
+            to="/professionals"
             style={{
               padding: '10px 20px',
-              backgroundColor: '#dc3545',
+              backgroundColor: '#007bff',
               color: 'white',
               textDecoration: 'none',
               borderRadius: '4px',
               display: 'inline-block'
             }}
           >
-            Administration
+            🔧 Espace Professionnel
           </Link>
+        )}
+
+        {userProfile?.role === 'admin' && (
+          <>
+            <Link 
+              to="/professionals"
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '4px',
+                display: 'inline-block'
+              }}
+            >
+              🔧 Espace Professionnel
+            </Link>
+            <Link 
+              to="/admin"
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#dc3545',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '4px',
+                display: 'inline-block'
+              }}
+            >
+              Administration
+            </Link>
+          </>
         )}
       </div>
 

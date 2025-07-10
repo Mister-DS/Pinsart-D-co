@@ -14,7 +14,6 @@ const WorkRequests = () => {
 
   const handleSuccess = (workRequest) => {
     console.log('Nouvelle demande créée:', workRequest);
-    // Ici on pourrait rediriger vers la liste des demandes
   };
 
   return (
