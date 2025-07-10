@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -42,6 +42,22 @@ const Dashboard = () => {
         <p><strong>Rôle :</strong> {user.user_metadata?.role || 'Non défini'}</p>
         <p><strong>Prénom :</strong> {user.user_metadata?.first_name}</p>
         <p><strong>Nom :</strong> {user.user_metadata?.last_name}</p>
+      </div>
+
+      <div style={{ marginTop: '20px' }}>
+        <Link 
+          to="/work-requests"
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#28a745',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '4px',
+            display: 'inline-block'
+          }}
+        >
+          Créer une demande de travaux
+        </Link>
       </div>
     </div>
   );
