@@ -1,10 +1,40 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { supabase } from '../supabase';
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserProfile();
+    }
+  }, [user]);
+
+  const fetchUserProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Erreur lors de la récupération du profil:', error);
+        return;
+      }
+
+      setUserProfile(data);
+    } catch (error) {
+      console.error('Erreur:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -14,6 +44,14 @@ const Dashboard = () => {
   if (!user) {
     navigate('/login');
     return null;
+  }
+
+  if (loading) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        <p>Chargement...</p>
+      </div>
+    );
   }
 
   return (
@@ -39,12 +77,29 @@ const Dashboard = () => {
         <h3>Bienvenue !</h3>
         <p><strong>Email :</strong> {user.email}</p>
         <p><strong>ID :</strong> {user.id}</p>
-        <p><strong>Rôle :</strong> {user.user_metadata?.role || 'Non défini'}</p>
-        <p><strong>Prénom :</strong> {user.user_metadata?.first_name}</p>
-        <p><strong>Nom :</strong> {user.user_metadata?.last_name}</p>
+        <p><strong>Rôle :</strong> {userProfile?.role || 'Non défini'}</p>
+        <p><strong>Prénom :</strong> {userProfile?.first_name || user.user_metadata?.first_name || 'Non défini'}</p>
+        <p><strong>Nom :</strong> {userProfile?.last_name || user.user_metadata?.last_name || 'Non défini'}</p>
+        
+        {userProfile?.role === 'professional' && (
+          <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#e7f3ff', borderRadius: '4px' }}>
+            <h4>Informations Professionnel</h4>
+            <p><strong>Entreprise :</strong> {userProfile.company_name || 'Non définie'}</p>
+            <p><strong>Spécialités :</strong> {userProfile.specialties?.join(', ') || 'Non définies'}</p>
+            <p><strong>Tarif horaire :</strong> {userProfile.hourly_rate ? `${userProfile.hourly_rate}€/h` : 'Non défini'}</p>
+            <p><strong>Note :</strong> {userProfile.rating}/5 ({userProfile.total_reviews} avis)</p>
+          </div>
+        )}
+
+        {userProfile?.role === 'admin' && (
+          <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#ffe6e6', borderRadius: '4px' }}>
+            <h4>🔧 Accès Administrateur</h4>
+            <p>Vous avez accès aux fonctions d'administration.</p>
+          </div>
+        )}
       </div>
 
-      <div style={{ marginTop: '20px' }}>
+      <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <Link 
           to="/work-requests"
           style={{
@@ -56,9 +111,32 @@ const Dashboard = () => {
             display: 'inline-block'
           }}
         >
-          Créer une demande de travaux
+          {userProfile?.role === 'professional' ? 'Voir les demandes' : 'Créer une demande de travaux'}
         </Link>
+
+        {userProfile?.role === 'admin' && (
+          <Link 
+            to="/admin"
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#dc3545',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '4px',
+              display: 'inline-block'
+            }}
+          >
+            Administration
+          </Link>
+        )}
       </div>
+
+      {!userProfile && (
+        <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#fff3cd', border: '1px solid #ffeaa7', borderRadius: '4px' }}>
+          <p><strong>⚠️ Profil incomplet</strong></p>
+          <p>Votre profil utilisateur n'a pas été créé correctement. Contactez l'administrateur.</p>
+        </div>
+      )}
     </div>
   );
 };

@@ -4,6 +4,8 @@ const { auth } = require('../middleware/auth');
 const {
   createWorkRequest,
   getUserWorkRequests,
+  getAllWorkRequests,
+  updateWorkRequestStatus,
   testController
 } = require('../controllers/workRequestController');
 
@@ -18,5 +20,11 @@ router.post('/', createWorkRequest);
 
 // GET /api/work-requests/my - Récupérer mes demandes
 router.get('/my', getUserWorkRequests);
+
+// GET /api/work-requests - Récupérer toutes les demandes (avec filtres)
+router.get('/', getAllWorkRequests);
+
+// PUT /api/work-requests/:id/status - Mettre à jour le statut d'une demande
+router.put('/:id/status', updateWorkRequestStatus);
 
 module.exports = router;
