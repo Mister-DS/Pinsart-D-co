@@ -194,26 +194,6 @@ const Header = () => {
             >
               Comment ça marche
             </Link>
-            
-            {!user && (
-              <Link
-                to="/work-requests"
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: '8px',
-                  fontWeight: '500',
-                  fontSize: '14px',
-                  transition: 'background-color 0.2s ease'
-                }}
-                onMouseOver={(e) => e.target.style.backgroundColor = '#059669'}
-                onMouseOut={(e) => e.target.style.backgroundColor = '#10b981'}
-              >
-                📋 Demander un devis
-              </Link>
-            )}
           </div>
 
           {/* Menu utilisateur */}

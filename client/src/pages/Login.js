@@ -20,7 +20,7 @@ const Login = () => {
     if (error) {
       setError('Email ou mot de passe incorrect');
     } else {
-      navigate('/dashboard');
+      navigate('/home');
     }
     setLoading(false);
   };
@@ -77,13 +77,6 @@ const Login = () => {
       <p style={{ textAlign: 'center', marginTop: '20px' }}>
         Pas de compte ? <Link to="/register">S'inscrire</Link>
       </p>
-
-      <div style={{ marginTop: '20px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-        <strong>Comptes de test :</strong><br />
-        Admin : dierickxsimon198@gmail.com / admin123!<br />
-        Client : client@test.com / admin123!<br />
-        Pro : pro@test.com / admin123!
-      </div>
     </div>
   );
 };

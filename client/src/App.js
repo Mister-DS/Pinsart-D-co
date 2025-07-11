@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import WorkRequests from './pages/WorkRequests';
 import AdminPage from './pages/AdminPage';
 import ProfessionalsPage from './pages/ProfessionalsPage';
+import ProfilePage from './pages/ProfilePage';
 
 function App() {
   return (
@@ -52,6 +53,7 @@ function App() {
                 <ProfessionalsPage />
               </Layout>
             } />
+            <Route path="/profile" element={<ProfilePage />} />
             
             {/* Pages à créer plus tard */}
             <Route path="/about" element={
