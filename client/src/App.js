@@ -12,6 +12,7 @@ import WorkRequests from './pages/WorkRequests';
 import AdminPage from './pages/AdminPage';
 import ProfessionalsPage from './pages/ProfessionalsPage';
 import ProfilePage from './pages/ProfilePage';
+import QuoteCreationPage from './pages/QuoteCreationPage';
 
 function App() {
   return (
@@ -80,6 +81,7 @@ function App() {
                 </div>
               </Layout>
             } />
+            <Route path="/quotes/new" element={<QuoteCreationPage />} />
           </Routes>
         </div>
       </Router>

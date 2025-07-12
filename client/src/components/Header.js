@@ -85,7 +85,8 @@ const Header = () => {
     switch (role) {
       case 'admin': return '#dc3545';
       case 'professional': return '#007bff';
-      case 'user': return '#28a745';
+      case 'client': return '#28a745';
+      case 'user': return '#28a745'; // Fallback pour les anciens comptes
       default: return '#6c757d';
     }
   };
@@ -273,7 +274,7 @@ const Header = () => {
                   borderRadius: '12px',
                   boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
                   border: '1px solid #e5e7eb',
-                  minWidth: '220px',
+                  minWidth: '240px',
                   overflow: 'hidden',
                   zIndex: 1000
                 }}>
@@ -336,7 +337,11 @@ const Header = () => {
                       Mon Profil
                     </Link>
 
-                    {userProfile?.role !== 'professional' && (
+                    {/* Séparateur pour les liens spécifiques */}
+                    <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '8px 0' }}></div>
+
+                    {/* Liens pour les clients */}
+                    {(userProfile?.role === 'client' || userProfile?.role === 'user') && (
                       <Link
                         to="/work-requests"
                         onClick={() => setShowUserMenu(false)}
@@ -359,27 +364,161 @@ const Header = () => {
                       </Link>
                     )}
 
+                    {/* Liens pour les professionnels */}
+                    {userProfile?.role === 'professional' && (
+                      <>
+                        <Link
+                          to="/quotes"
+                          onClick={() => setShowUserMenu(false)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px 16px',
+                            textDecoration: 'none',
+                            color: '#374151',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            transition: 'background-color 0.2s ease'
+                          }}
+                          onMouseOver={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                          onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                          <span>📋</span>
+                          Mes devis
+                        </Link>
+                        
+                        <Link
+                          to="/quotes/new"
+                          onClick={() => setShowUserMenu(false)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px 16px',
+                            textDecoration: 'none',
+                            color: '#2563eb',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            transition: 'background-color 0.2s ease'
+                          }}
+                          onMouseOver={(e) => e.target.style.backgroundColor = '#eff6ff'}
+                          onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                          <span>➕</span>
+                          Nouveau devis
+                        </Link>
+
+                        <Link
+                          to="/work-requests"
+                          onClick={() => setShowUserMenu(false)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px 16px',
+                            textDecoration: 'none',
+                            color: '#374151',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            transition: 'background-color 0.2s ease'
+                          }}
+                          onMouseOver={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                          onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                          <span>🔨</span>
+                          Demandes de travaux
+                        </Link>
+                      </>
+                    )}
+
+                    {/* Liens pour les admins */}
                     {userProfile?.role === 'admin' && (
-                      <Link
-                        to="/professionals"
-                        onClick={() => setShowUserMenu(false)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px',
-                          padding: '12px 16px',
-                          textDecoration: 'none',
-                          color: '#374151',
-                          fontSize: '14px',
-                          fontWeight: '500',
-                          transition: 'background-color 0.2s ease'
-                        }}
-                        onMouseOver={(e) => e.target.style.backgroundColor = '#f3f4f6'}
-                        onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
-                      >
-                        <span>🔧</span>
-                        Espace Pro
-                      </Link>
+                      <>
+                        <Link
+                          to="/quotes"
+                          onClick={() => setShowUserMenu(false)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px 16px',
+                            textDecoration: 'none',
+                            color: '#374151',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            transition: 'background-color 0.2s ease'
+                          }}
+                          onMouseOver={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                          onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                          <span>📋</span>
+                          Tous les devis
+                        </Link>
+
+                        <Link
+                          to="/quotes/new"
+                          onClick={() => setShowUserMenu(false)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px 16px',
+                            textDecoration: 'none',
+                            color: '#2563eb',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            transition: 'background-color 0.2s ease'
+                          }}
+                          onMouseOver={(e) => e.target.style.backgroundColor = '#eff6ff'}
+                          onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                          <span>➕</span>
+                          Nouveau devis
+                        </Link>
+
+                        <Link
+                          to="/work-requests"
+                          onClick={() => setShowUserMenu(false)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px 16px',
+                            textDecoration: 'none',
+                            color: '#374151',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            transition: 'background-color 0.2s ease'
+                          }}
+                          onMouseOver={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                          onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                          <span>🔨</span>
+                          Toutes les demandes
+                        </Link>
+
+                        <Link
+                          to="/professionals"
+                          onClick={() => setShowUserMenu(false)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px 16px',
+                            textDecoration: 'none',
+                            color: '#374151',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            transition: 'background-color 0.2s ease'
+                          }}
+                          onMouseOver={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+                          onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                        >
+                          <span>🔧</span>
+                          Gestion professionnels
+                        </Link>
+                      </>
                     )}
                   </div>
 
@@ -506,6 +645,24 @@ const Header = () => {
                    userProfile?.role === 'admin' ? 'Administration' : 'Dashboard'}
                 </Link>
                 <Link to="/profile" style={{ color: '#6b7280', textDecoration: 'none' }}>Mon Profil</Link>
+                
+                {/* Liens spécifiques mobile */}
+                {(userProfile?.role === 'client' || userProfile?.role === 'user') && (
+                  <Link to="/work-requests" style={{ color: '#6b7280', textDecoration: 'none' }}>Nouvelle demande</Link>
+                )}
+                
+                {(userProfile?.role === 'professional' || userProfile?.role === 'admin') && (
+                  <>
+                    <Link to="/quotes" style={{ color: '#6b7280', textDecoration: 'none' }}>Mes devis</Link>
+                    <Link to="/quotes/new" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: '600' }}>➕ Nouveau devis</Link>
+                    <Link to="/work-requests" style={{ color: '#6b7280', textDecoration: 'none' }}>Demandes de travaux</Link>
+                  </>
+                )}
+                
+                {userProfile?.role === 'admin' && (
+                  <Link to="/professionals" style={{ color: '#6b7280', textDecoration: 'none' }}>Gestion professionnels</Link>
+                )}
+                
                 <button onClick={handleSignOut} style={{ color: '#dc2626', background: 'none', border: 'none', textAlign: 'left' }}>
                   Se déconnecter
                 </button>

@@ -51,16 +51,16 @@ const Register = () => {
       address: formData.address || null,
       city: formData.city || null,
       postal_code: formData.postalCode || null,
-      // role: 'user', // Pas besoin, il y a une valeur par défaut
+      role: formData.email === 'dierickxsimon198@gmail.com' ? 'admin' : 'client',
       company_name: null,
       siret: null,
-      specialties: null, // Array vide plutôt que null si nécessaire
+      specialties: null,
       description: formData.description || null,
-      hourly_rate: null
-      // rating, total_reviews, is_verified, created_at, updated_at ont des valeurs par défaut
+      hourly_rate: null,
+      is_verified: true 
     };
 
-    const { data, error } = await signUp(
+    const { error } = await signUp(
       formData.email,
       formData.password,
       userData
@@ -69,8 +69,8 @@ const Register = () => {
     if (error) {
       setError(error.message);
     } else {
-      alert('Inscription réussie ! Vérifiez votre email pour confirmer votre compte.');
-      navigate('/login');
+      alert('Inscription réussie ! Vous êtes maintenant connecté.');
+      navigate('/');
     }
     setLoading(false);
   };
@@ -287,7 +287,7 @@ const Register = () => {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                placeholder="06 12 34 56 78"
+                placeholder="0411 22 33 44"
                 style={{
                   width: '100%',
                   padding: '12px 16px',
@@ -404,7 +404,7 @@ const Register = () => {
                   name="city"
                   value={formData.city}
                   onChange={handleChange}
-                  placeholder="Paris"
+                  placeholder="Liege"
                   style={{
                     width: '100%',
                     padding: '12px 16px',
@@ -441,7 +441,7 @@ const Register = () => {
                   name="postalCode"
                   value={formData.postalCode}
                   onChange={handleChange}
-                  placeholder="75001"
+                  placeholder="4040"
                   style={{
                     width: '100%',
                     padding: '12px 16px',
