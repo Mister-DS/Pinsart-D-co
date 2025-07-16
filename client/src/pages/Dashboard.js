@@ -8,10 +8,13 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [myRequests, setMyRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
       fetchUserProfile();
+      fetchMyRequests();
     }
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -34,6 +37,89 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchMyRequests = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('work_requests')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Erreur lors de la récupération des demandes:', error);
+        return;
+      }
+
+      setMyRequests(data || []);
+    } catch (error) {
+      console.error('Erreur:', error);
+    } finally {
+      setRequestsLoading(false);
+    }
+  };
+
+  const getStatusInfo = (status) => {
+    switch (status) {
+      case 'pending':
+        return {
+          label: 'En attente',
+          color: '#f59e0b',
+          bgColor: '#fef3c7',
+          icon: '⏳'
+        };
+      case 'assigned':
+        return {
+          label: 'Acceptée',
+          color: '#3b82f6',
+          bgColor: '#dbeafe',
+          icon: '✅'
+        };
+      case 'in_progress':
+        return {
+          label: 'En cours',
+          color: '#8b5cf6',
+          bgColor: '#e9d5ff',
+          icon: '🔄'
+        };
+      case 'completed':
+        return {
+          label: 'Terminée',
+          color: '#10b981',
+          bgColor: '#d1fae5',
+          icon: '✨'
+        };
+      case 'cancelled':
+        return {
+          label: 'Annulée',
+          color: '#ef4444',
+          bgColor: '#fee2e2',
+          icon: '❌'
+        };
+      default:
+        return {
+          label: 'Inconnu',
+          color: '#6b7280',
+          bgColor: '#f3f4f6',
+          icon: '❓'
+        };
+    }
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR'
+    }).format(price);
   };
 
   if (!user) {
@@ -217,6 +303,224 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Mes Demandes Section */}
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: '24px',
+          padding: '40px',
+          marginBottom: '30px',
+          boxShadow: '0 25px 50px rgba(0, 0, 0, 0.15)',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+            <div style={{
+              width: '50px',
+              height: '50px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #667eea, #764ba2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '24px',
+              marginRight: '15px',
+              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
+            }}>
+              📋
+            </div>
+            <div>
+              <h3 style={{ margin: '0', fontSize: '24px', fontWeight: '700', color: '#1f2937' }}>
+                Mes Demandes
+              </h3>
+              <p style={{ margin: '4px 0 0 0', color: '#6b7280', fontSize: '14px' }}>
+                Suivez l'état de vos demandes de travaux
+              </p>
+            </div>
+          </div>
+
+          {requestsLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                border: '4px solid #f3f3f3',
+                borderTop: '4px solid #667eea',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+                margin: '0 auto 20px'
+              }}></div>
+              <p style={{ color: '#6b7280', margin: 0 }}>Chargement de vos demandes...</p>
+            </div>
+          ) : myRequests.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '40px',
+              background: '#f9fafb',
+              borderRadius: '16px',
+              border: '2px dashed #d1d5db'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>📝</div>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#374151' }}>
+                Aucune demande pour le moment
+              </h4>
+              <p style={{ margin: '0 0 16px 0', color: '#6b7280' }}>
+                Vous n'avez pas encore créé de demande de travaux
+              </p>
+              <Link 
+                to="/work-requests"
+                style={{
+                  display: 'inline-block',
+                  padding: '12px 24px',
+                  background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+                }}
+              >
+                Créer ma première demande
+              </Link>
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+              gap: '20px'
+            }}>
+              {myRequests.map((request) => {
+                const statusInfo = getStatusInfo(request.status);
+                return (
+                  <div key={request.id} style={{
+                    background: 'white',
+                    borderRadius: '16px',
+                    padding: '20px',
+                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid #e5e7eb',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                  }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                      <h4 style={{
+                        margin: '0',
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        color: '#1f2937',
+                        flex: 1,
+                        marginRight: '12px'
+                      }}>
+                        {request.title}
+                      </h4>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '4px 8px',
+                        backgroundColor: statusInfo.bgColor,
+                        color: statusInfo.color,
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        flexShrink: 0
+                      }}>
+                        <span style={{ marginRight: '4px' }}>{statusInfo.icon}</span>
+                        {statusInfo.label}
+                      </div>
+                    </div>
+
+                    <p style={{
+                      margin: '0 0 12px 0',
+                      color: '#6b7280',
+                      fontSize: '14px',
+                      lineHeight: '1.4',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {request.description}
+                    </p>
+
+                    <div style={{
+                      display: 'flex',
+                      gap: '8px',
+                      flexWrap: 'wrap',
+                      marginBottom: '12px'
+                    }}>
+                      <span style={{
+                        padding: '2px 8px',
+                        backgroundColor: '#f3f4f6',
+                        color: '#374151',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: '500'
+                      }}>
+                        📂 {request.category}
+                      </span>
+                      {request.urgency && (
+                        <span style={{
+                          padding: '2px 8px',
+                          backgroundColor: '#fef3c7',
+                          color: '#92400e',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: '500'
+                        }}>
+                          ⚡ {request.urgency}
+                        </span>
+                      )}
+                      {request.location_city && (
+                        <span style={{
+                          padding: '2px 8px',
+                          backgroundColor: '#e5e7eb',
+                          color: '#374151',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: '500'
+                        }}>
+                          📍 {request.location_city}
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      paddingTop: '12px',
+                      borderTop: '1px solid #f3f4f6'
+                    }}>
+                      <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                        Créée le {formatDate(request.created_at)}
+                      </div>
+                      {(request.budget_min || request.budget_max) && (
+                        <div style={{
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          color: '#10b981'
+                        }}>
+                          {request.budget_min && request.budget_max ? 
+                            `${formatPrice(request.budget_min)} - ${formatPrice(request.budget_max)}` :
+                            formatPrice(request.budget_max || request.budget_min)
+                          }
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Special Role Cards */}

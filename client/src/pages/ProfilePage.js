@@ -10,6 +10,8 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(null);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -48,6 +50,7 @@ const ProfilePage = () => {
       }
 
       setUserProfile(data);
+      setAvatarUrl(data.avatar_url);
       setFormData({
         first_name: data.first_name || '',
         last_name: data.last_name || '',
@@ -66,6 +69,143 @@ const ProfilePage = () => {
       setMessage({ type: 'error', text: 'Erreur lors du chargement du profil' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const uploadAvatar = async (event) => {
+    try {
+      setAvatarUploading(true);
+      setMessage({ type: '', text: '' });
+
+      const file = event.target.files[0];
+      if (!file) return;
+
+      console.log('Fichier sélectionné:', file.name, file.type, file.size);
+
+      // Vérifier le type de fichier
+      if (!file.type.startsWith('image/')) {
+        setMessage({ type: 'error', text: 'Veuillez sélectionner un fichier image' });
+        return;
+      }
+
+      // Vérifier la taille (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setMessage({ type: 'error', text: 'L\'image ne doit pas dépasser 5MB' });
+        return;
+      }
+
+      // Générer un nom de fichier unique (plus simple)
+      const fileExt = file.name.split('.').pop().toLowerCase();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      console.log('Nom de fichier:', fileName);
+
+      // Supprimer l'ancien avatar s'il existe
+      if (avatarUrl) {
+        try {
+          const oldFileName = avatarUrl.split('/').pop();
+          console.log('Suppression ancien fichier:', oldFileName);
+          const { error: deleteError } = await supabase.storage
+            .from('avatars')
+            .remove([oldFileName]);
+          if (deleteError) {
+            console.log('Erreur suppression ancien fichier:', deleteError);
+          }
+        } catch (deleteErr) {
+          console.log('Erreur lors de la suppression:', deleteErr);
+        }
+      }
+
+      // Upload du nouveau fichier
+      console.log('Début upload...');
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type
+        });
+
+      console.log('Résultat upload:', { uploadData, uploadError });
+
+      if (uploadError) {
+        console.error('Erreur upload détaillée:', uploadError);
+        throw new Error(`Erreur upload: ${uploadError.message || 'Upload failed'}`);
+      }
+
+      // Obtenir l'URL publique
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      console.log('URL générée:', urlData);
+
+      if (!urlData || !urlData.publicUrl) {
+        throw new Error('Impossible de générer l\'URL publique');
+      }
+
+      const newAvatarUrl = urlData.publicUrl;
+
+      // Mettre à jour le profil en base
+      console.log('Mise à jour profil avec URL:', newAvatarUrl);
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({ 
+          avatar_url: newAvatarUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('Erreur mise à jour profil:', updateError);
+        throw new Error(`Erreur sauvegarde: ${updateError.message}`);
+      }
+
+      setAvatarUrl(newAvatarUrl);
+      setMessage({ type: 'success', text: 'Photo de profil mise à jour avec succès !' });
+      console.log('Upload terminé avec succès');
+    } catch (error) {
+      console.error('Erreur upload avatar:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error.message || 'Erreur lors de l\'upload de l\'image'
+      });
+    } finally {
+      setAvatarUploading(false);
+      // Réinitialiser l'input file
+      event.target.value = '';
+    }
+  };
+
+  const removeAvatar = async () => {
+    if (!avatarUrl) return;
+
+    try {
+      setAvatarUploading(true);
+      
+      // Supprimer le fichier du storage
+      const fileName = avatarUrl.split('/').pop();
+      await supabase.storage
+        .from('avatars')
+        .remove([fileName]);
+
+      // Mettre à jour le profil en base
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ 
+          avatar_url: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setAvatarUrl(null);
+      setMessage({ type: 'success', text: 'Photo de profil supprimée' });
+    } catch (error) {
+      console.error('Erreur suppression avatar:', error);
+      setMessage({ type: 'error', text: 'Erreur lors de la suppression' });
+    } finally {
+      setAvatarUploading(false);
     }
   };
 
@@ -203,7 +343,7 @@ const ProfilePage = () => {
         margin: '0 auto',
         padding: '40px'
       }}>
-        {/* En-tête de la page */}
+        {/* En-tête de la page avec photo de profil */}
         <div style={{
           background: 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(20px)',
@@ -214,19 +354,143 @@ const ProfilePage = () => {
           border: '1px solid rgba(255, 255, 255, 0.2)',
           textAlign: 'center'
         }}>
-          <div style={{
-            width: '80px',
-            height: '80px',
-            borderRadius: '20px',
-            background: roleInfo.bgColor,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '32px',
-            margin: '0 auto 20px',
-            boxShadow: '0 15px 30px rgba(0, 0, 0, 0.2)'
-          }}>
-            {roleInfo.icon}
+          {/* Photo de profil */}
+          <div style={{ marginBottom: '24px' }}>
+            <div style={{
+              position: 'relative',
+              display: 'inline-block'
+            }}>
+              <div style={{
+                width: '120px',
+                height: '120px',
+                borderRadius: '50%',
+                background: avatarUrl 
+                  ? `url(${avatarUrl}) center/cover` 
+                  : roleInfo.bgColor,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: avatarUrl ? '0' : '48px',
+                margin: '0 auto',
+                boxShadow: '0 15px 30px rgba(0, 0, 0, 0.2)',
+                border: '4px solid white',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                {!avatarUrl && roleInfo.icon}
+                
+                {/* Overlay pour l'upload */}
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'rgba(0, 0, 0, 0.5)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: 0,
+                  transition: 'opacity 0.3s ease',
+                  cursor: 'pointer',
+                  borderRadius: '50%'
+                }}
+                className="avatar-overlay"
+                onMouseEnter={(e) => e.target.style.opacity = '1'}
+                onMouseLeave={(e) => e.target.style.opacity = '0'}
+                onClick={() => document.getElementById('avatar-upload').click()}
+                >
+                  {avatarUploading ? (
+                    <div style={{
+                      width: '24px',
+                      height: '24px',
+                      border: '3px solid rgba(255, 255, 255, 0.3)',
+                      borderTop: '3px solid white',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }}></div>
+                  ) : (
+                    <svg width="32" height="32" fill="white" viewBox="0 0 24 24">
+                      <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/>
+                    </svg>
+                  )}
+                </div>
+              </div>
+              
+              {/* Boutons d'action pour l'avatar */}
+              <div style={{
+                position: 'absolute',
+                top: '90px',
+                right: '-10px',
+                display: 'flex',
+                gap: '8px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('avatar-upload').click()}
+                  disabled={avatarUploading}
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                    border: 'none',
+                    color: 'white',
+                    cursor: avatarUploading ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'transform 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => !avatarUploading && (e.target.style.transform = 'scale(1.1)')}
+                  onMouseLeave={(e) => !avatarUploading && (e.target.style.transform = 'scale(1)')}
+                  title="Changer la photo"
+                >
+                  <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 4V1h2v3h3v2H5v3H3V6H0V4h3zm3 6V7h3V4h7l1.83 2H21c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V10h3zm7 9c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-3-5c0-1.65 1.35-3 3-3s3 1.35 3 3-1.35 3-3 3-3-1.35-3-3z"/>
+                  </svg>
+                </button>
+                
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={removeAvatar}
+                    disabled={avatarUploading}
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                      border: 'none',
+                      color: 'white',
+                      cursor: avatarUploading ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'transform 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => !avatarUploading && (e.target.style.transform = 'scale(1.1)')}
+                    onMouseLeave={(e) => !avatarUploading && (e.target.style.transform = 'scale(1)')}
+                    title="Supprimer la photo"
+                  >
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+              
+              {/* Input caché pour l'upload */}
+              <input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                onChange={uploadAvatar}
+                style={{ display: 'none' }}
+              />
+            </div>
           </div>
           
           <h1 style={{
@@ -926,6 +1190,10 @@ const ProfilePage = () => {
           @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
+          }
+          
+          .avatar-overlay:hover {
+            opacity: 1 !important;
           }
           
           @media (max-width: 768px) {

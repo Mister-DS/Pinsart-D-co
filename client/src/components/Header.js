@@ -91,6 +91,16 @@ const Header = () => {
     }
   };
 
+  const getRoleIcon = (role) => {
+    switch (role) {
+      case 'admin': return '👑';
+      case 'professional': return '🔧';
+      case 'client': return '👤';
+      case 'user': return '👤';
+      default: return '👤';
+    }
+  };
+
   const getDashboardLink = () => {
     if (userProfile?.role === 'professional') {
       return '/professionals';
@@ -99,6 +109,57 @@ const Header = () => {
       return '/admin';
     }
     return '/dashboard';
+  };
+
+  // Composant Avatar avec photo de profil ou fallback
+  const UserAvatar = ({ size = 40, showBorder = false, clickable = false }) => {
+    const avatarStyle = {
+      width: `${size}px`,
+      height: `${size}px`,
+      borderRadius: '50%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: `${size * 0.35}px`,
+      fontWeight: '600',
+      cursor: clickable ? 'pointer' : 'default',
+      border: showBorder ? '3px solid white' : 'none',
+      boxShadow: showBorder ? '0 2px 8px rgba(0, 0, 0, 0.15)' : 'none',
+      transition: 'transform 0.2s ease',
+      position: 'relative',
+      overflow: 'hidden'
+    };
+
+    if (userProfile?.avatar_url) {
+      return (
+        <div
+          style={{
+            ...avatarStyle,
+            backgroundImage: `url(${userProfile.avatar_url})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            color: 'transparent'
+          }}
+          onMouseEnter={(e) => clickable && (e.target.style.transform = 'scale(1.05)')}
+          onMouseLeave={(e) => clickable && (e.target.style.transform = 'scale(1)')}
+        />
+      );
+    }
+
+    // Fallback avec initiales et couleur de rôle
+    return (
+      <div
+        style={{
+          ...avatarStyle,
+          backgroundColor: getRoleColor(userProfile?.role),
+          color: 'white'
+        }}
+        onMouseEnter={(e) => clickable && (e.target.style.transform = 'scale(1.05)')}
+        onMouseLeave={(e) => clickable && (e.target.style.transform = 'scale(1)')}
+      >
+        {getUserInitials()}
+      </div>
+    );
   };
 
   return (
@@ -216,21 +277,8 @@ const Header = () => {
                 onMouseOver={(e) => e.target.style.backgroundColor = '#f9fafb'}
                 onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
               >
-                {/* Avatar */}
-                <div style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  backgroundColor: getRoleColor(userProfile?.role),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontWeight: '600',
-                  fontSize: '14px'
-                }}>
-                  {getUserInitials()}
-                </div>
+                {/* Avatar avec photo de profil */}
+                <UserAvatar size={40} clickable={true} />
                 
                 {/* Infos utilisateur */}
                 <div style={{ textAlign: 'left' }}>
@@ -245,8 +293,12 @@ const Header = () => {
                     fontSize: '12px',
                     color: getRoleColor(userProfile?.role),
                     fontWeight: '500',
-                    textTransform: 'capitalize'
+                    textTransform: 'capitalize',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}>
+                    <span>{getRoleIcon(userProfile?.role)}</span>
                     {userProfile?.role === 'professional' ? 'Professionnel' :
                      userProfile?.role === 'admin' ? 'Administrateur' : 'Client'}
                   </div>
@@ -278,17 +330,36 @@ const Header = () => {
                   overflow: 'hidden',
                   zIndex: 1000
                 }}>
-                  {/* Header du menu */}
+                  {/* Header du menu avec photo de profil */}
                   <div style={{
                     padding: '16px',
                     borderBottom: '1px solid #f3f4f6',
-                    backgroundColor: '#f9fafb'
+                    backgroundColor: '#f9fafb',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
                   }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>
-                      {getUserDisplayName()}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                      {user.email}
+                    <UserAvatar size={48} showBorder={true} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>
+                        {getUserDisplayName()}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                        {user.email}
+                      </div>
+                      <div style={{
+                        fontSize: '11px',
+                        color: getRoleColor(userProfile?.role),
+                        fontWeight: '500',
+                        marginTop: '2px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <span>{getRoleIcon(userProfile?.role)}</span>
+                        {userProfile?.role === 'professional' ? 'Professionnel' :
+                         userProfile?.role === 'admin' ? 'Administrateur' : 'Client'}
+                      </div>
                     </div>
                   </div>
 
@@ -631,6 +702,28 @@ const Header = () => {
         }}
         className="mobile-menu"
         >
+          {user && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '20px',
+              padding: '12px',
+              backgroundColor: '#f9fafb',
+              borderRadius: '12px'
+            }}>
+              <UserAvatar size={36} />
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>
+                  {getUserDisplayName()}
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                  {user.email}
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div style={{
             display: 'flex',
             flexDirection: 'column',
