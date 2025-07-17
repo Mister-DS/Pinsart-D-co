@@ -15,6 +15,7 @@ import ProfilePage from './pages/ProfilePage';
 import QuoteCreationPage from './pages/QuoteCreationPage';
 import AboutPage from './pages/AboutPage';
 import HowItWorksPage from './pages/how-it-works';
+import ContactPage from './pages/ContactPage';
 
 function App() {
   return (
@@ -60,7 +61,7 @@ function App() {
             
             <Route path="/quotes/new" element={<QuoteCreationPage />} />
             
-            {/* Pages principales */}
+            {/* Pages principales avec Layout */}
             <Route path="/about" element={
               <Layout>
                 <AboutPage />
@@ -70,6 +71,12 @@ function App() {
             <Route path="/how-it-works" element={
               <Layout>
                 <HowItWorksPage />
+              </Layout>
+            } />
+
+            <Route path="/contact" element={
+              <Layout>
+                <ContactPage />
               </Layout>
             } />
 
