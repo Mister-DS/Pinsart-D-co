@@ -13,6 +13,8 @@ import AdminPage from './pages/AdminPage';
 import ProfessionalsPage from './pages/ProfessionalsPage';
 import ProfilePage from './pages/ProfilePage';
 import QuoteCreationPage from './pages/QuoteCreationPage';
+import AboutPage from './pages/AboutPage';
+import HowItWorksPage from './pages/how-it-works';
 
 function App() {
   return (
@@ -56,32 +58,21 @@ function App() {
             } />
             <Route path="/profile" element={<ProfilePage />} />
             
-            {/* Pages à créer plus tard */}
+            <Route path="/quotes/new" element={<QuoteCreationPage />} />
+            
+            {/* Pages principales */}
             <Route path="/about" element={
               <Layout>
-                <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-                  <h1>À propos de Pinsart Déco</h1>
-                  <p>Page en construction...</p>
-                </div>
+                <AboutPage />
               </Layout>
             } />
+
             <Route path="/how-it-works" element={
               <Layout>
-                <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-                  <h1>Comment ça marche</h1>
-                  <p>Page en construction...</p>
-                </div>
+                <HowItWorksPage />
               </Layout>
             } />
-            <Route path="/profile" element={
-              <Layout>
-                <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-                  <h1>Mon Profil</h1>
-                  <p>Page en construction...</p>
-                </div>
-              </Layout>
-            } />
-            <Route path="/quotes/new" element={<QuoteCreationPage />} />
+
           </Routes>
         </div>
       </Router>
