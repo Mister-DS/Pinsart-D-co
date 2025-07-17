@@ -3,14 +3,154 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 
+// Composant Alert réutilisable
+const Alert = ({ type, message, onClose, autoClose = true }) => {
+  useEffect(() => {
+    if (autoClose && onClose) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [autoClose, onClose]);
+
+  const getAlertStyles = () => {
+    const baseStyles = {
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      zIndex: 1000,
+      padding: '16px 20px',
+      borderRadius: '12px',
+      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      minWidth: '300px',
+      maxWidth: '500px',
+      fontSize: '14px',
+      fontWeight: '500',
+      animation: 'slideIn 0.3s ease-out',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(255, 255, 255, 0.2)'
+    };
+
+    switch (type) {
+      case 'success':
+        return {
+          ...baseStyles,
+          backgroundColor: 'rgba(16, 185, 129, 0.95)',
+          color: 'white',
+          border: '1px solid rgba(16, 185, 129, 0.3)'
+        };
+      case 'error':
+        return {
+          ...baseStyles,
+          backgroundColor: 'rgba(239, 68, 68, 0.95)',
+          color: 'white',
+          border: '1px solid rgba(239, 68, 68, 0.3)'
+        };
+      case 'warning':
+        return {
+          ...baseStyles,
+          backgroundColor: 'rgba(245, 158, 11, 0.95)',
+          color: 'white',
+          border: '1px solid rgba(245, 158, 11, 0.3)'
+        };
+      case 'info':
+        return {
+          ...baseStyles,
+          backgroundColor: 'rgba(59, 130, 246, 0.95)',
+          color: 'white',
+          border: '1px solid rgba(59, 130, 246, 0.3)'
+        };
+      default:
+        return baseStyles;
+    }
+  };
+
+  const getIcon = () => {
+    switch (type) {
+      case 'success':
+        return '✓';
+      case 'error':
+        return '✕';
+      case 'warning':
+        return '⚠';
+      case 'info':
+        return 'ℹ';
+      default:
+        return '';
+    }
+  };
+
+  return (
+    <>
+      <style>
+        {`
+          @keyframes slideIn {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
+      <div style={getAlertStyles()}>
+        <div style={{
+          width: '20px',
+          height: '20px',
+          borderRadius: '50%',
+          backgroundColor: 'rgba(255, 255, 255, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '12px',
+          fontWeight: 'bold'
+        }}>
+          {getIcon()}
+        </div>
+        <div style={{ flex: 1 }}>
+          {message}
+        </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              padding: '4px',
+              borderRadius: '4px',
+              fontSize: '16px',
+              opacity: 0.7,
+              transition: 'opacity 0.2s'
+            }}
+            onMouseEnter={(e) => e.target.style.opacity = '1'}
+            onMouseLeave={(e) => e.target.style.opacity = '0.7'}
+          >
+            ×
+          </button>
+        )}
+      </div>
+    </>
+  );
+};
+
 const QuoteCreationPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [alert, setAlert] = useState(null);
   const [clients, setClients] = useState([]);
+  const [formErrors, setFormErrors] = useState({});
   
   const [quoteData, setQuoteData] = useState({
     client_id: '',
@@ -33,6 +173,15 @@ const QuoteCreationPage = () => {
     }
   ]);
 
+  // Fonction pour afficher les alertes
+  const showAlert = (type, message) => {
+    setAlert({ type, message });
+  };
+
+  const closeAlert = () => {
+    setAlert(null);
+  };
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -52,7 +201,7 @@ const QuoteCreationPage = () => {
 
       if (error) {
         console.error('Erreur lors de la récupération du profil:', error);
-        setMessage({ type: 'error', text: 'Erreur lors du chargement du profil' });
+        showAlert('error', 'Erreur lors du chargement du profil');
         return;
       }
 
@@ -60,13 +209,13 @@ const QuoteCreationPage = () => {
       
       // Vérifier que l'utilisateur est un professionnel
       if (data.role !== 'professional' && data.role !== 'admin') {
-        setMessage({ type: 'error', text: 'Accès non autorisé. Seuls les professionnels peuvent créer des devis.' });
-        setTimeout(() => navigate('/dashboard'), 2000);
+        showAlert('error', 'Accès non autorisé. Seuls les professionnels peuvent créer des devis.');
+        setTimeout(() => navigate('/dashboard'), 3000);
         return;
       }
     } catch (error) {
       console.error('Erreur:', error);
-      setMessage({ type: 'error', text: 'Erreur lors du chargement du profil' });
+      showAlert('error', 'Erreur lors du chargement du profil');
     } finally {
       setLoading(false);
     }
@@ -82,20 +231,47 @@ const QuoteCreationPage = () => {
 
       if (error) {
         console.error('Erreur lors de la récupération des clients:', error);
+        showAlert('warning', 'Impossible de charger la liste des clients');
         return;
       }
 
       setClients(data);
     } catch (error) {
       console.error('Erreur:', error);
+      showAlert('error', 'Erreur lors du chargement des clients');
     }
   };
 
+  const validateForm = () => {
+    const errors = {};
+    
+    if (!quoteData.client_id) errors.client_id = 'Veuillez sélectionner un client';
+    if (!quoteData.title.trim()) errors.title = 'Le titre est obligatoire';
+    if (!quoteData.description.trim()) errors.description = 'La description est obligatoire';
+    
+    const validItems = quoteItems.filter(item => item.description.trim() !== '');
+    if (validItems.length === 0) {
+      errors.items = 'Veuillez ajouter au moins un item au devis';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleQuoteDataChange = (e) => {
+    const { name, value } = e.target;
     setQuoteData({
       ...quoteData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+    
+    // Supprimer l'erreur si le champ est maintenant valide
+    if (formErrors[name] && value.trim()) {
+      setFormErrors({
+        ...formErrors,
+        [name]: undefined
+      });
+    }
   };
 
   const handleItemChange = (index, field, value) => {
@@ -104,10 +280,20 @@ const QuoteCreationPage = () => {
     
     // Recalculer le total pour cet item
     if (field === 'quantity' || field === 'unit_price') {
-      updatedItems[index].total = parseFloat(updatedItems[index].quantity) * parseFloat(updatedItems[index].unit_price || 0);
+      const quantity = parseFloat(updatedItems[index].quantity) || 0;
+      const unitPrice = parseFloat(updatedItems[index].unit_price) || 0;
+      updatedItems[index].total = quantity * unitPrice;
     }
     
     setQuoteItems(updatedItems);
+    
+    // Supprimer l'erreur des items si on a au moins un item valide
+    if (formErrors.items && updatedItems.some(item => item.description.trim() !== '')) {
+      setFormErrors({
+        ...formErrors,
+        items: undefined
+      });
+    }
   };
 
   const addItem = () => {
@@ -121,11 +307,13 @@ const QuoteCreationPage = () => {
         total: 0
       }
     ]);
+    showAlert('info', 'Nouvelle ligne ajoutée');
   };
 
   const removeItem = (index) => {
     if (quoteItems.length > 1) {
       setQuoteItems(quoteItems.filter((_, i) => i !== index));
+      showAlert('info', 'Ligne supprimée');
     }
   };
 
@@ -135,13 +323,19 @@ const QuoteCreationPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      showAlert('error', 'Veuillez corriger les erreurs dans le formulaire');
+      return;
+    }
+
     setSaving(true);
-    setMessage({ type: '', text: '' });
 
     try {
-      // Validation de base
-      if (!quoteData.client_id || !quoteData.title || !quoteData.description) {
-        setMessage({ type: 'error', text: 'Veuillez remplir tous les champs obligatoires' });
+      const validItems = quoteItems.filter(item => item.description.trim() !== '');
+      
+      if (validItems.length === 0) {
+        showAlert('error', 'Veuillez ajouter au moins un item au devis');
         setSaving(false);
         return;
       }
@@ -150,12 +344,12 @@ const QuoteCreationPage = () => {
       const quotePayload = {
         professional_id: user.id,
         client_id: quoteData.client_id,
-        title: quoteData.title,
-        description: quoteData.description,
-        work_location: quoteData.work_location || null,
-        estimated_duration: quoteData.estimated_duration || null,
+        title: quoteData.title.trim(),
+        description: quoteData.description.trim(),
+        work_location: quoteData.work_location.trim() || null,
+        estimated_duration: quoteData.estimated_duration.trim() || null,
         estimated_start_date: quoteData.estimated_start_date || null,
-        notes: quoteData.notes || null,
+        notes: quoteData.notes.trim() || null,
         total_amount: calculateTotal(),
         status: quoteData.status,
         created_at: new Date().toISOString()
@@ -172,38 +366,62 @@ const QuoteCreationPage = () => {
       }
 
       // Insérer les items du devis
-      const itemsPayload = quoteItems
-        .filter(item => item.description.trim() !== '')
-        .map(item => ({
-          quote_id: quote.id,
-          description: item.description,
-          quantity: parseFloat(item.quantity),
-          unit_price: parseFloat(item.unit_price),
-          total_price: parseFloat(item.total)
-        }));
+      const itemsPayload = validItems.map(item => ({
+        quote_id: quote.id,
+        description: item.description.trim(),
+        quantity: parseFloat(item.quantity) || 0,
+        unit_price: parseFloat(item.unit_price) || 0,
+        total_price: parseFloat(item.total) || 0
+      }));
 
-      if (itemsPayload.length > 0) {
-        const { error: itemsError } = await supabase
-          .from('quote_items')
-          .insert(itemsPayload);
+      const { error: itemsError } = await supabase
+        .from('quote_items')
+        .insert(itemsPayload);
 
-        if (itemsError) {
-          throw itemsError;
-        }
+      if (itemsError) {
+        throw itemsError;
       }
 
-      setMessage({ type: 'success', text: 'Devis créé avec succès !' });
+      const statusText = quoteData.status === 'draft' ? 'sauvegardé en brouillon' : 'créé et envoyé';
+      showAlert('success', `Devis ${statusText} avec succès !`);
+      
       setTimeout(() => {
-        navigate('/quotes'); // Rediriger vers la liste des devis
+        navigate('/quotes');
       }, 2000);
 
     } catch (error) {
       console.error('Erreur lors de la création du devis:', error);
-      setMessage({ type: 'error', text: 'Erreur lors de la création du devis' });
+      showAlert('error', 'Erreur lors de la création du devis. Veuillez réessayer.');
     } finally {
       setSaving(false);
     }
   };
+
+  const handleSaveAsDraft = () => {
+    setQuoteData({...quoteData, status: 'draft'});
+    setTimeout(() => {
+      document.querySelector('form').requestSubmit();
+    }, 100);
+  };
+
+  const handleSendQuote = () => {
+    setQuoteData({...quoteData, status: 'sent'});
+    setTimeout(() => {
+      document.querySelector('form').requestSubmit();
+    }, 100);
+  };
+
+  const getInputStyle = (fieldName) => ({
+    width: '100%',
+    padding: '12px 16px',
+    border: `2px solid ${formErrors[fieldName] ? '#ef4444' : '#e5e7eb'}`,
+    borderRadius: '12px',
+    fontSize: '16px',
+    backgroundColor: '#ffffff',
+    outline: 'none',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.2s'
+  });
 
   if (loading) {
     return (
@@ -251,6 +469,15 @@ const QuoteCreationPage = () => {
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       paddingTop: '70px'
     }}>
+      {/* Système d'alertes */}
+      {alert && (
+        <Alert
+          type={alert.type}
+          message={alert.message}
+          onClose={closeAlert}
+        />
+      )}
+
       <div style={{
         maxWidth: '1000px',
         margin: '0 auto',
@@ -303,22 +530,6 @@ const QuoteCreationPage = () => {
           </p>
         </div>
 
-        {/* Message de feedback */}
-        {message.text && (
-          <div style={{
-            padding: '16px',
-            borderRadius: '12px',
-            marginBottom: '24px',
-            backgroundColor: message.type === 'success' ? '#d1fae5' : '#fee2e2',
-            color: message.type === 'success' ? '#065f46' : '#991b1b',
-            border: `1px solid ${message.type === 'success' ? '#a7f3d0' : '#fecaca'}`,
-            fontSize: '14px',
-            fontWeight: '500'
-          }}>
-            {message.text}
-          </div>
-        )}
-
         <form onSubmit={handleSubmit}>
           {/* Informations générales */}
           <div style={{
@@ -358,16 +569,7 @@ const QuoteCreationPage = () => {
                   value={quoteData.client_id}
                   onChange={handleQuoteDataChange}
                   required
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    backgroundColor: '#ffffff',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
+                  style={getInputStyle('client_id')}
                 >
                   <option value="">Sélectionner un client</option>
                   {clients.map(client => (
@@ -376,6 +578,11 @@ const QuoteCreationPage = () => {
                     </option>
                   ))}
                 </select>
+                {formErrors.client_id && (
+                  <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
+                    {formErrors.client_id}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -395,17 +602,13 @@ const QuoteCreationPage = () => {
                   onChange={handleQuoteDataChange}
                   required
                   placeholder="Ex: Rénovation salle de bain"
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    backgroundColor: '#ffffff',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
+                  style={getInputStyle('title')}
                 />
+                {formErrors.title && (
+                  <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
+                    {formErrors.title}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -427,18 +630,16 @@ const QuoteCreationPage = () => {
                 placeholder="Décrivez en détail les travaux à réaliser..."
                 rows="4"
                 style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '12px',
-                  fontSize: '16px',
-                  backgroundColor: '#ffffff',
-                  outline: 'none',
+                  ...getInputStyle('description'),
                   resize: 'vertical',
-                  fontFamily: 'inherit',
-                  boxSizing: 'border-box'
+                  fontFamily: 'inherit'
                 }}
               />
+              {formErrors.description && (
+                <p style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>
+                  {formErrors.description}
+                </p>
+              )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
@@ -458,16 +659,7 @@ const QuoteCreationPage = () => {
                   value={quoteData.work_location}
                   onChange={handleQuoteDataChange}
                   placeholder="Adresse des travaux"
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    backgroundColor: '#ffffff',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
+                  style={getInputStyle('work_location')}
                 />
               </div>
 
@@ -487,16 +679,7 @@ const QuoteCreationPage = () => {
                   value={quoteData.estimated_duration}
                   onChange={handleQuoteDataChange}
                   placeholder="Ex: 3 jours"
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    backgroundColor: '#ffffff',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
+                  style={getInputStyle('estimated_duration')}
                 />
               </div>
 
@@ -515,16 +698,7 @@ const QuoteCreationPage = () => {
                   name="estimated_start_date"
                   value={quoteData.estimated_start_date}
                   onChange={handleQuoteDataChange}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    backgroundColor: '#ffffff',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
+                  style={getInputStyle('estimated_start_date')}
                 />
               </div>
             </div>
@@ -572,12 +746,29 @@ const QuoteCreationPage = () => {
                   fontWeight: '500',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px'
+                  gap: '4px',
+                  transition: 'transform 0.2s',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
                 }}
+                onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
+                onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
               >
                 + Ajouter une ligne
               </button>
             </div>
+
+            {formErrors.items && (
+              <div style={{
+                padding: '12px',
+                backgroundColor: '#fee2e2',
+                color: '#991b1b',
+                borderRadius: '8px',
+                fontSize: '14px',
+                marginBottom: '16px'
+              }}>
+                {formErrors.items}
+              </div>
+            )}
 
             {/* En-têtes des colonnes */}
             <div style={{
@@ -617,7 +808,8 @@ const QuoteCreationPage = () => {
                     border: '1px solid #d1d5db',
                     borderRadius: '8px',
                     fontSize: '14px',
-                    outline: 'none'
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
                   }}
                 />
                 
@@ -632,7 +824,8 @@ const QuoteCreationPage = () => {
                     border: '1px solid #d1d5db',
                     borderRadius: '8px',
                     fontSize: '14px',
-                    outline: 'none'
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
                   }}
                 />
                 
@@ -647,7 +840,8 @@ const QuoteCreationPage = () => {
                     border: '1px solid #d1d5db',
                     borderRadius: '8px',
                     fontSize: '14px',
-                    outline: 'none'
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
                   }}
                 />
                 
@@ -673,7 +867,8 @@ const QuoteCreationPage = () => {
                     border: 'none',
                     borderRadius: '8px',
                     cursor: quoteItems.length === 1 ? 'not-allowed' : 'pointer',
-                    fontSize: '14px'
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s'
                   }}
                 >
                   🗑️
@@ -742,18 +937,7 @@ const QuoteCreationPage = () => {
               onChange={handleQuoteDataChange}
               placeholder="Conditions particulières, garanties, délais de paiement..."
               rows="4"
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                border: '2px solid #e5e7eb',
-                borderRadius: '12px',
-                fontSize: '16px',
-                backgroundColor: '#ffffff',
-                outline: 'none',
-                resize: 'vertical',
-                fontFamily: 'inherit',
-                boxSizing: 'border-box'
-              }}
+              style={getInputStyle('notes')}
             />
           </div>
 
@@ -771,25 +955,40 @@ const QuoteCreationPage = () => {
           }}>
             <button
               type="button"
-              onClick={() => setQuoteData({...quoteData, status: 'draft'})}
+              onClick={handleSaveAsDraft}
+              disabled={saving}
               style={{
                 padding: '16px 24px',
-                background: 'linear-gradient(135deg, #9ca3af, #6b7280)',
+                background: saving 
+                  ? 'linear-gradient(135deg, #9ca3af, #6b7280)' 
+                  : 'linear-gradient(135deg, #9ca3af, #6b7280)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '12px',
-                cursor: 'pointer',
+                cursor: saving ? 'not-allowed' : 'pointer',
                 fontSize: '16px',
-                fontWeight: '600'
+                fontWeight: '600',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                boxShadow: '0 4px 12px rgba(156, 163, 175, 0.3)'
+              }}
+              onMouseEnter={(e) => {
+                if (!saving) {
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 8px 20px rgba(156, 163, 175, 0.4)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 12px rgba(156, 163, 175, 0.3)';
               }}
             >
-              Sauvegarder en brouillon
+              {saving ? 'Sauvegarde...' : 'Sauvegarder en brouillon'}
             </button>
 
             <button
-              type="submit"
+              type="button"
+              onClick={handleSendQuote}
               disabled={saving}
-              onClick={() => setQuoteData({...quoteData, status: 'sent'})}
               style={{
                 padding: '16px 24px',
                 background: saving 
@@ -801,7 +1000,19 @@ const QuoteCreationPage = () => {
                 cursor: saving ? 'not-allowed' : 'pointer',
                 fontSize: '16px',
                 fontWeight: '600',
-                minWidth: '200px'
+                minWidth: '200px',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+              }}
+              onMouseEnter={(e) => {
+                if (!saving) {
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.4)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
               }}
             >
               {saving ? 'Création...' : 'Créer et envoyer le devis'}

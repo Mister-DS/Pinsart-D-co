@@ -146,7 +146,7 @@ const AdminPage = () => {
       ));
 
       if (isActive) {
-        showNotification('Utilisateur débanني et remis en client', 'success');
+        showNotification('Utilisateur débanni et remis en utilisateur', 'success');
       } else {
         showNotification('Utilisateur banni', 'success');
       }
@@ -359,7 +359,7 @@ const AdminPage = () => {
               transition: 'background-color 0.2s ease'
             }}
           >
-            Remettre Client
+            Remettre Utilisateur
           </button>
         )}
         {user.role !== 'admin' && (
@@ -388,7 +388,7 @@ const AdminPage = () => {
               transition: 'background-color 0.2s ease'
             }}
           >
-            {user.is_verified ? 'Bannir' : 'Débannir → Client'}
+            {user.is_verified ? 'Bannir' : 'Débannir → Utilisateur'}
           </button>
         )}
       </div>
@@ -538,7 +538,7 @@ const AdminPage = () => {
                   icon="👥"
                 />
                 <StatCard
-                  title="Clients"
+                  title="Utilisateurs"
                   value={stats.users?.user || 0}
                   subtitle="Utilisateurs standards"
                   color="#10b981"
@@ -674,7 +674,7 @@ const AdminPage = () => {
                     }}
                   >
                     <option value="all">Tous les rôles</option>
-                    <option value="user">Clients</option>
+                    <option value="user">Utilisateurs</option>
                     <option value="professional">Professionnels</option>
                     <option value="admin">Administrateurs</option>
                   </select>
@@ -794,7 +794,6 @@ const AdminPage = () => {
                             }}
                           >
                             <option value="pending">En attente</option>
-                            <option value="assigned">Assignée</option>
                             <option value="in_progress">En cours</option>
                             <option value="completed">Terminée</option>
                             <option value="cancelled">Annulée</option>

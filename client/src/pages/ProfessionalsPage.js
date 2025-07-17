@@ -8,6 +8,145 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_ANON_KEY
 );
 
+// Composant Alert réutilisable
+const Alert = ({ type, message, onClose, autoClose = true }) => {
+  useEffect(() => {
+    if (autoClose && onClose) {
+      const timer = setTimeout(() => {
+        onClose();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [autoClose, onClose]);
+
+  const getAlertStyles = () => {
+    const baseStyles = {
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      zIndex: 1000,
+      padding: '16px 20px',
+      borderRadius: '12px',
+      boxShadow: '0 10px 25px rgba(0, 0, 0, 0.15)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      minWidth: '300px',
+      maxWidth: '500px',
+      fontSize: '14px',
+      fontWeight: '500',
+      animation: 'slideIn 0.3s ease-out',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(255, 255, 255, 0.2)'
+    };
+
+    switch (type) {
+      case 'success':
+        return {
+          ...baseStyles,
+          backgroundColor: 'rgba(16, 185, 129, 0.95)',
+          color: 'white',
+          border: '1px solid rgba(16, 185, 129, 0.3)'
+        };
+      case 'error':
+        return {
+          ...baseStyles,
+          backgroundColor: 'rgba(239, 68, 68, 0.95)',
+          color: 'white',
+          border: '1px solid rgba(239, 68, 68, 0.3)'
+        };
+      case 'warning':
+        return {
+          ...baseStyles,
+          backgroundColor: 'rgba(245, 158, 11, 0.95)',
+          color: 'white',
+          border: '1px solid rgba(245, 158, 11, 0.3)'
+        };
+      case 'info':
+        return {
+          ...baseStyles,
+          backgroundColor: 'rgba(59, 130, 246, 0.95)',
+          color: 'white',
+          border: '1px solid rgba(59, 130, 246, 0.3)'
+        };
+      default:
+        return baseStyles;
+    }
+  };
+
+  const getIcon = () => {
+    switch (type) {
+      case 'success':
+        return '✓';
+      case 'error':
+        return '✕';
+      case 'warning':
+        return '⚠';
+      case 'info':
+        return 'ℹ';
+      default:
+        return '';
+    }
+  };
+
+  return (
+    <>
+      <style>
+        {`
+          @keyframes slideIn {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
+      <div style={getAlertStyles()}>
+        <div style={{
+          width: '20px',
+          height: '20px',
+          borderRadius: '50%',
+          backgroundColor: 'rgba(255, 255, 255, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '12px',
+          fontWeight: 'bold'
+        }}>
+          {getIcon()}
+        </div>
+        <div style={{ flex: 1 }}>
+          {message}
+        </div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              padding: '4px',
+              borderRadius: '4px',
+              fontSize: '16px',
+              opacity: 0.7,
+              transition: 'opacity 0.2s'
+            }}
+            onMouseEnter={(e) => e.target.style.opacity = '1'}
+            onMouseLeave={(e) => e.target.style.opacity = '0.7'}
+          >
+            ×
+          </button>
+        )}
+      </div>
+    </>
+  );
+};
+
 const ProfessionalsPage = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -17,6 +156,7 @@ const ProfessionalsPage = () => {
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
   const [stats, setStats] = useState({});
+  const [alert, setAlert] = useState(null);
   const [filters, setFilters] = useState({
     category: 'all',
     city: '',
@@ -32,12 +172,40 @@ const ProfessionalsPage = () => {
     amount: '',
     description: '',
     duration: '',
-    conditions: ''
+    conditions: '',
+    validity: '30 jours'
   });
+  const [quoteItems, setQuoteItems] = useState([
+    {
+      id: Date.now(),
+      description: '',
+      quantity: 1,
+      unit_price: 0,
+      total: 0
+    }
+  ]);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imageGallery, setImageGallery] = useState([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // NEW STATE VARIABLES FOR CONTINUOUS COUNTS
+  const [allCounts, setAllCounts] = useState({
+    pending: 0,
+    assigned: 0,
+    in_progress: 0,
+    completed: 0,
+    cancelled: 0
+  });
+
+  // Fonction pour afficher les alertes
+  const showAlert = (type, message) => {
+    setAlert({ type, message });
+  };
+
+  const closeAlert = () => {
+    setAlert(null);
+  };
 
   const checkUserAccess = useCallback(async () => {
     console.log("=== checkUserAccess DEMARRE ===");
@@ -49,7 +217,8 @@ const ProfessionalsPage = () => {
 
     if (user === null) {
       console.log("User null, redirection vers login");
-      navigate('/login');
+      showAlert('warning', 'Vous devez être connecté pour accéder à cette page');
+      setTimeout(() => navigate('/login'), 2000);
       return;
     }
 
@@ -68,21 +237,25 @@ const ProfessionalsPage = () => {
 
       if (error || !data) {
         console.log("Erreur profil ou pas de data:", error);
-        navigate('/dashboard');
+        showAlert('error', 'Impossible de charger votre profil');
+        setTimeout(() => navigate('/dashboard'), 2000);
         return;
       }
 
       if (data.role !== 'professional' && data.role !== 'admin') {
         console.log("Rôle non autorisé:", data.role);
-        navigate('/dashboard');
+        showAlert('error', 'Accès non autorisé. Seuls les professionnels peuvent accéder à cette page.');
+        setTimeout(() => navigate('/dashboard'), 2000);
         return;
       }
 
       console.log("Profil chargé avec succès, rôle:", data.role);
       setUserProfile(data);
+      showAlert('success', `Bienvenue dans votre espace professionnel, ${data.first_name || data.company_name} !`);
     } catch (error) {
       console.error('Erreur de vérification accès:', error);
-      navigate('/dashboard');
+      showAlert('error', 'Erreur de connexion');
+      setTimeout(() => navigate('/dashboard'), 2000);
     }
   }, [user, userProfile, navigate]);
 
@@ -116,6 +289,7 @@ const ProfessionalsPage = () => {
       fetchWorkRequests();
       fetchMyApplications();
       calculateStats();
+      fetchAllWorkRequestCounts(); // CALL THE NEW FUNCTION HERE
     }
   }, [userProfile, activeTab, filters.category, filters.city, filters.urgency]);
 
@@ -130,67 +304,136 @@ const ProfessionalsPage = () => {
     setDisplayedWorkRequests(finalDisplayedData);
   }, [workRequests, filters.minBudget, filters.maxBudget]);
 
+  // NEW FUNCTION TO FETCH ALL COUNTS
+  const fetchAllWorkRequestCounts = async () => {
+    if (!user?.id) return;
+
+    try {
+      // Pending requests count
+      const { count: pendingCount, error: pendingError } = await supabase
+        .from('work_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      if (pendingError) throw pendingError;
+
+      // Assigned requests count (Accepted)
+      const { count: assignedCount, error: assignedError } = await supabase
+        .from('work_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'assigned')
+        .eq('assigned_to', user.id);
+      if (assignedError) throw assignedError;
+
+      // In progress requests count
+      const { count: inProgressCount, error: inProgressError } = await supabase
+        .from('work_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'in_progress')
+        .eq('assigned_to', user.id);
+      if (inProgressError) throw inProgressError;
+
+      // Completed requests count
+      const { count: completedCount, error: completedError } = await supabase
+        .from('work_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'completed')
+        .eq('assigned_to', user.id);
+      if (completedError) throw completedError;
+
+      // Cancelled (Refused) requests count
+      const { count: cancelledCount, error: cancelledError } = await supabase
+        .from('work_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'cancelled'); // Assuming 'cancelled' means refused
+      if (cancelledError) throw cancelledError;
+
+      setAllCounts({
+        pending: pendingCount || 0,
+        assigned: assignedCount || 0,
+        in_progress: inProgressCount || 0,
+        completed: completedCount || 0,
+        cancelled: cancelledCount || 0
+      });
+
+    } catch (error) {
+      console.error('Error fetching all work request counts:', error);
+      // Optionally reset counts on error
+      setAllCounts({
+        pending: 0,
+        assigned: 0,
+        in_progress: 0,
+        completed: 0,
+        cancelled: 0
+      });
+    }
+  };
+
   const fetchWorkRequests = async () => {
-  setLoading(true);
-  try {
-    let query = supabase
-      .from('work_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
+    setLoading(true);
+    try {
+      let query = supabase
+        .from('work_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    // Appliquer les filtres de catégorie, ville et urgence
-    if (filters.category !== 'all') {
-      query = query.eq('category', filters.category);
-    }
-    if (filters.city) {
-      query = query.ilike('location_city', `%${filters.city}%`);
-    }
-    if (filters.urgency !== 'all') {
-      query = query.eq('urgency', filters.urgency);
-    }
+      // Apply category, city, and urgency filters
+      if (filters.category !== 'all') {
+        query = query.eq('category', filters.category);
+      }
+      if (filters.city) {
+        query = query.ilike('location_city', `%${filters.city}%`);
+      }
+      if (filters.urgency !== 'all') {
+        query = query.eq('urgency', filters.urgency);
+      }
 
-    const { data, error } = await query;
+      // MODIFICATION START: Filter based on activeTab directly in the Supabase query
+      if (activeTab === 'new') {
+        query = query.eq('status', 'pending');
+      } else if (activeTab === 'accepted') {
+        query = query.eq('status', 'assigned').eq('assigned_to', user.id);
+      } else if (activeTab === 'in_progress') {
+        query = query.eq('status', 'in_progress').eq('assigned_to', user.id);
+      } else if (activeTab === 'completed') {
+        query = query.eq('status', 'completed').eq('assigned_to', user.id);
+      } else if (activeTab === 'refused') {
+        // For 'refused' tab, we need to consider requests that were refused by the current professional.
+        // This assumes 'cancelled' is the status for refused and the 'notes' field might contain the refuser's info.
+        // If there's a specific 'refused_by' column or similar, use that instead.
+        // For simplicity here, we'll just show all 'cancelled' requests, as the original code also just filtered by status 'cancelled'.
+        query = query.eq('status', 'cancelled');
+      }
+      // MODIFICATION END
 
-    if (error) {
-      console.error('Erreur Supabase:', error);
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Erreur Supabase:', error);
+        showAlert('error', 'Erreur lors du chargement des demandes');
+        setWorkRequests([]);
+        setDisplayedWorkRequests([]);
+        return;
+      }
+
+      const processedData = data?.map(req => ({
+        ...req,
+        client_first_name: 'Client',
+        client_last_name: `#${req.user_id?.slice(-4) || 'N/A'}`,
+        client_email: 'Non disponible'
+      })) || [];
+
+      // Set both workRequests and displayedWorkRequests to the processed data from the targeted query
+      setWorkRequests(processedData);
+      setDisplayedWorkRequests(processedData); // Now they are already filtered by the query
+    } catch (error) {
+      console.error('Erreur fetch:', error);
+      showAlert('error', 'Erreur de connexion');
       setWorkRequests([]);
       setDisplayedWorkRequests([]);
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    const processedData = data?.map(req => ({
-      ...req,
-      client_first_name: 'Client',
-      client_last_name: `#${req.user_id?.slice(-4) || 'N/A'}`,
-      client_email: 'Non disponible'
-    })) || [];
-
-    // Toujours mettre à jour workRequests avec toutes les données
-    setWorkRequests(processedData);
-
-    // Filtrer pour displayedWorkRequests selon l'onglet actif
-    let filtered = processedData;
-    if (activeTab === 'new') {
-      filtered = filtered.filter(r => r.status === 'pending');
-    } else if (activeTab === 'accepted') {
-      filtered = filtered.filter(r => r.status === 'assigned' && r.assigned_to === user.id);
-    } else if (activeTab === 'in_progress') {
-      filtered = filtered.filter(r => r.status === 'in_progress' && r.assigned_to === user.id);
-    } else if (activeTab === 'completed') {
-      filtered = filtered.filter(r => r.status === 'completed' && r.assigned_to === user.id);
-    } else if (activeTab === 'refused') {
-      filtered = filtered.filter(r => r.status === 'cancelled');
-    }
-
-    setDisplayedWorkRequests(filtered);
-  } catch (error) {
-    console.error('Erreur fetch:', error);
-    setWorkRequests([]);
-    setDisplayedWorkRequests([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const fetchMyApplications = async () => {
     // Fonction gardée pour la structure, sans implémentation spécifique pour le moment
@@ -230,17 +473,18 @@ const ProfessionalsPage = () => {
       });
     } catch (error) {
       console.error('Erreur calcul statistiques:', error);
+      showAlert('warning', 'Impossible de calculer les statistiques');
     }
   };
 
   const acceptRequest = async (requestId) => {
     if (!requestId) {
-      alert('ID de demande manquant');
+      showAlert('error', 'ID de demande manquant');
       return;
     }
     if (!user || !user.id) {
-        alert('Utilisateur non authentifié.');
-        return;
+      showAlert('error', 'Utilisateur non authentifié');
+      return;
     }
 
     try {
@@ -262,16 +506,17 @@ const ProfessionalsPage = () => {
       }
 
       console.log('Demande acceptée avec succès:', data);
-      alert('Demande acceptée avec succès ! En attente de votre devis.');
+      showAlert('success', 'Demande acceptée avec succès ! Vous pouvez maintenant créer un devis.');
 
       setTimeout(async () => {
         await fetchWorkRequests();
         await calculateStats();
-      }, 500);
+        await fetchAllWorkRequestCounts(); // Update counts after status change
+      }, 1000);
 
     } catch (error) {
       console.error('Erreur acceptation:', error);
-      alert('Erreur lors de l\'acceptation: ' + error.message);
+      showAlert('error', 'Erreur lors de l\'acceptation: ' + error.message);
     }
   };
 
@@ -288,8 +533,67 @@ const ProfessionalsPage = () => {
       amount: '',
       description: '',
       duration: '',
-      conditions: ''
+      conditions: '',
+      validity: '30 jours'
     });
+    setQuoteItems([
+      {
+        id: Date.now(),
+        description: '',
+        quantity: 1,
+        unit_price: 0,
+        total: 0
+      }
+    ]);
+  };
+
+  const handleItemChange = (index, field, value) => {
+    const updatedItems = [...quoteItems];
+    updatedItems[index][field] = value;
+    
+    // Recalculer le total pour cet item
+    if (field === 'quantity' || field === 'unit_price') {
+      const quantity = parseFloat(updatedItems[index].quantity) || 0;
+      const unitPrice = parseFloat(updatedItems[index].unit_price) || 0;
+      updatedItems[index].total = quantity * unitPrice;
+    }
+    
+    setQuoteItems(updatedItems);
+    
+    // Mettre à jour le montant total
+    const totalAmount = updatedItems.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
+    setQuoteData({...quoteData, amount: totalAmount.toString()});
+  };
+
+  const addQuoteItem = () => {
+    setQuoteItems([
+      ...quoteItems,
+      {
+        id: Date.now(),
+        description: '',
+        quantity: 1,
+        unit_price: 0,
+        total: 0
+      }
+    ]);
+    showAlert('info', 'Nouvelle ligne ajoutée au devis');
+  };
+
+  const removeQuoteItem = (index) => {
+    if (quoteItems.length > 1) {
+      const newItems = quoteItems.filter((_, i) => i !== index);
+      setQuoteItems(newItems);
+      
+      // Recalculer le total
+      const totalAmount = newItems.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
+      setQuoteData({...quoteData, amount: totalAmount.toString()});
+      
+      showAlert('info', 'Ligne supprimée du devis');
+    }
+  };
+
+  const calculateQuoteTotal = () => {
+    return quoteItems.reduce((sum, item) => sum + (parseFloat(item.total) || 0), 0);
   };
 
   const openImageModal = (images, selectedIndex = 0) => {
@@ -311,53 +615,89 @@ const ProfessionalsPage = () => {
   };
 
   const submitQuote = async () => {
-    if (!quoteData.amount || !quoteData.description) {
-      alert('Veuillez remplir au moins le montant et la description');
+    if (!quoteData.description) {
+      showAlert('error', 'Veuillez remplir la description du devis');
+      return;
+    }
+
+    const validItems = quoteItems.filter(item => item.description.trim() !== '');
+    if (validItems.length === 0) {
+      showAlert('error', 'Veuillez ajouter au moins un item au devis');
       return;
     }
 
     try {
+      const totalAmount = calculateQuoteTotal();
+      
       const quoteText = `DEVIS PROFESSIONNEL:
-Montant: ${quoteData.amount}€
-Description: ${quoteData.description}
-Durée estimée: ${quoteData.duration || 'Non spécifiée'}
-Conditions: ${quoteData.conditions || 'Selon conditions générales'}
+===============================
+
+💰 MONTANT TOTAL: ${totalAmount.toFixed(2)}€
+
+📋 DÉTAIL DES PRESTATIONS:
+${validItems.map(item => 
+  `• ${item.description} - Qté: ${item.quantity} - Prix unitaire: ${item.unit_price}€ - Total: ${item.total.toFixed(2)}€`
+).join('\n')}
+
+📝 DESCRIPTION GÉNÉRALE:
+${quoteData.description}
+
+⏱️ DURÉE ESTIMÉE: ${quoteData.duration || 'Non spécifiée'}
+📅 VALIDITÉ: ${quoteData.validity}
+
+📋 CONDITIONS:
+${quoteData.conditions || 'Selon conditions générales'}
+
 ---
-Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' + userProfile?.last_name}`;
+👨‍💼 Devis établi par: ${userProfile?.company_name || userProfile?.first_name + ' ' + userProfile?.last_name}
+📧 Contact: ${userProfile?.email}
+📞 Téléphone: ${userProfile?.phone || 'Non renseigné'}`;
 
       const { error } = await supabase
         .from('work_requests')
         .update({
           notes: quoteText,
-          budget_max: parseFloat(quoteData.amount)
+          budget_max: totalAmount
         })
         .eq('id', selectedRequest.id);
 
       if (error) throw error;
 
-      alert('Devis envoyé avec succès !');
+      showAlert('success', 'Devis envoyé avec succès ! Le client va recevoir une notification.');
       setShowQuoteModal(false);
       setSelectedRequest(null);
       setQuoteData({
         amount: '',
         description: '',
         duration: '',
-        conditions: ''
+        conditions: '',
+        validity: '30 jours'
       });
+      setQuoteItems([
+        {
+          id: Date.now(),
+          description: '',
+          quantity: 1,
+          unit_price: 0,
+          total: 0
+        }
+      ]);
+      
       await fetchWorkRequests();
+      await fetchAllWorkRequestCounts(); // Update counts after status change
     } catch (error) {
       console.error('Erreur envoi devis:', error);
-      alert('Erreur lors de l\'envoi du devis: ' + error.message);
+      showAlert('error', 'Erreur lors de l\'envoi du devis: ' + error.message);
     }
   };
 
   const refuseRequest = async () => {
     if (!selectedRequest) {
-        alert('Veuillez sélectionner une demande à refuser.');
-        return;
+      showAlert('error', 'Veuillez sélectionner une demande à refuser');
+      return;
     }
     if (!refuseReason.trim()) {
-      alert('Veuillez indiquer une raison de refus');
+      showAlert('error', 'Veuillez indiquer une raison de refus');
       return;
     }
 
@@ -369,7 +709,7 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
         .update({
           status: 'cancelled',
           notes: `Refusé par ${userProfile?.company_name || 'professionnel'}: ${refuseReason}`,
-          assigned_to: null,
+          assigned_to: null, // Unassign the request
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedRequest.id)
@@ -381,7 +721,7 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
       }
 
       console.log('Demande refusée avec succès:', data);
-      alert('Demande refusée avec succès.');
+      showAlert('success', 'Demande refusée. Le client en sera informé.');
       setShowRefuseModal(false);
       setSelectedRequest(null);
       setRefuseReason('');
@@ -389,15 +729,21 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
       setTimeout(async () => {
         await fetchWorkRequests();
         await calculateStats();
-      }, 500);
+        await fetchAllWorkRequestCounts(); // Update counts after status change
+      }, 1000);
 
     } catch (error) {
       console.error('Erreur refus:', error);
-      alert('Erreur lors du refus: ' + error.message);
+      showAlert('error', 'Erreur lors du refus: ' + error.message);
     }
   };
 
   const updateRequestStatus = async (requestId, newStatus) => {
+    const statusMessages = {
+      'in_progress': 'Travaux commencés avec succès !',
+      'completed': 'Projet marqué comme terminé !'
+    };
+
     try {
       const { error } = await supabase
         .from('work_requests')
@@ -409,16 +755,17 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
 
       if (error) throw error;
 
-      alert('Statut mis à jour avec succès !');
+      showAlert('success', statusMessages[newStatus] || 'Statut mis à jour avec succès !');
 
       setTimeout(async () => {
         await fetchWorkRequests();
         await calculateStats();
+        await fetchAllWorkRequestCounts(); // Update counts after status change
       }, 1000);
 
     } catch (error) {
       console.error('Erreur mise à jour statut:', error);
-      alert('Erreur lors de la mise à jour: ' + error.message);
+      showAlert('error', 'Erreur lors de la mise à jour: ' + error.message);
     }
   };
 
@@ -705,10 +1052,13 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
                   borderRadius: '8px',
                   fontSize: '14px',
                   fontWeight: '500',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
                 }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#059669'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#10b981'}
               >
-                Accepter
+                ✅ Accepter
               </button>
               <button
                 onClick={() => openRefuseModal(request)}
@@ -720,10 +1070,13 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
                   borderRadius: '8px',
                   fontSize: '14px',
                   fontWeight: '500',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
                 }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#dc2626'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#ef4444'}
               >
-                Refuser
+                ❌ Refuser
               </button>
             </>
           )}
@@ -739,10 +1092,13 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
                   borderRadius: '8px',
                   fontSize: '14px',
                   fontWeight: '500',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
                 }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#d97706'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#f59e0b'}
               >
-                Créer un devis
+                💰 Créer un devis
               </button>
               <button
                 onClick={() => updateRequestStatus(request.id, 'in_progress')}
@@ -754,10 +1110,13 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
                   borderRadius: '8px',
                   fontSize: '14px',
                   fontWeight: '500',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
                 }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#2563eb'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#3b82f6'}
               >
-                Commencer les travaux
+                🔄 Commencer les travaux
               </button>
             </>
           )}
@@ -772,10 +1131,13 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
                 borderRadius: '8px',
                 fontSize: '14px',
                 fontWeight: '500',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
               }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#059669'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#10b981'}
             >
-              Marquer comme terminé
+              ✅ Marquer comme terminé
             </button>
           )}
         </div>
@@ -823,6 +1185,15 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       padding: '20px'
     }}>
+      {/* Système d'alertes */}
+      {alert && (
+        <Alert
+          type={alert.type}
+          message={alert.message}
+          onClose={closeAlert}
+        />
+      )}
+
       <style>
         {`
           @keyframes spin {
@@ -878,58 +1249,58 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
         </div>
 
         {/* Navigation */}
-<div style={{
-  backgroundColor: 'rgba(255,255,255,0.1)',
-  padding: '8px',
-  borderRadius: '16px',
-  marginBottom: '32px',
-  backdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255,255,255,0.2)'
-}}>
-  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-    <TabButton
-      id="dashboard"
-      label="📊 Dashboard"
-      active={activeTab === 'dashboard'}
-      onClick={setActiveTab}
-    />
-    <TabButton
-      id="new"
-      label="🆕 Nouvelles demandes"
-      count={workRequests.filter(r => r.status === 'pending').length}
-      active={activeTab === 'new'}
-      onClick={setActiveTab}
-    />
-    <TabButton
-      id="accepted"
-      label="✅ Acceptées (en attente devis)"
-      count={workRequests.filter(r => r.status === 'assigned' && r.assigned_to === user?.id).length}
-      active={activeTab === 'accepted'}
-      onClick={setActiveTab}
-    />
-    <TabButton
-      id="in_progress"
-      label="🔄 En cours"
-      count={workRequests.filter(r => r.status === 'in_progress' && r.assigned_to === user?.id).length}
-      active={activeTab === 'in_progress'}
-      onClick={setActiveTab}
-    />
-    <TabButton
-      id="completed"
-      label="✅ Terminées"
-      count={workRequests.filter(r => r.status === 'completed' && r.assigned_to === user?.id).length}
-      active={activeTab === 'completed'}
-      onClick={setActiveTab}
-    />
-    <TabButton
-      id="refused"
-      label="❌ Refusées"
-      count={workRequests.filter(r => r.status === 'cancelled').length}
-      active={activeTab === 'refused'}
-      onClick={setActiveTab}
-    />
-  </div>
-</div>
+        <div style={{
+          backgroundColor: 'rgba(255,255,255,0.1)',
+          padding: '8px',
+          borderRadius: '16px',
+          marginBottom: '32px',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255,255,255,0.2)'
+        }}>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            <TabButton
+              id="dashboard"
+              label="📊 Dashboard"
+              active={activeTab === 'dashboard'}
+              onClick={setActiveTab}
+            />
+            <TabButton
+              id="new"
+              label="🆕 Nouvelles demandes"
+              count={allCounts.pending} // USE NEW STATE FOR COUNT
+              active={activeTab === 'new'}
+              onClick={setActiveTab}
+            />
+            <TabButton
+              id="accepted"
+              label="✅ Acceptées (en attente devis)"
+              count={allCounts.assigned} // USE NEW STATE FOR COUNT
+              active={activeTab === 'accepted'}
+              onClick={setActiveTab}
+            />
+            <TabButton
+              id="in_progress"
+              label="🔄 En cours"
+              count={allCounts.in_progress} // USE NEW STATE FOR COUNT
+              active={activeTab === 'in_progress'}
+              onClick={setActiveTab}
+            />
+            <TabButton
+              id="completed"
+              label="✅ Terminées"
+              count={allCounts.completed} // USE NEW STATE FOR COUNT
+              active={activeTab === 'completed'}
+              onClick={setActiveTab}
+            />
+            <TabButton
+              id="refused"
+              label="❌ Refusées"
+              count={allCounts.cancelled} // USE NEW STATE FOR COUNT
+              active={activeTab === 'refused'}
+              onClick={setActiveTab}
+            />
+          </div>
+        </div>
 
         {/* Content */}
         <div>
@@ -1543,7 +1914,7 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
         </div>
       )}
 
-      {/* Modal de devis */}
+      {/* Modal de devis AMÉLIORÉ */}
       {showQuoteModal && (
         <div style={{
           position: 'fixed',
@@ -1555,114 +1926,426 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1000,
+          padding: '20px'
         }}>
           <div style={{
             backgroundColor: 'white',
-            borderRadius: '16px',
-            padding: '32px',
-            maxWidth: '600px',
-            width: '90%',
+            borderRadius: '20px',
+            maxWidth: '900px',
+            width: '100%',
             maxHeight: '90vh',
             overflowY: 'auto',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '1px solid #f3f4f6'
           }}>
-            <h3 style={{
-              margin: '0 0 16px 0',
-              fontSize: '24px',
-              fontWeight: '600',
-              color: '#111827'
-            }}>
-              💰 Créer un devis
-            </h3>
-
+            {/* Header du modal */}
             <div style={{
-              padding: '16px',
-              backgroundColor: '#f9fafb',
-              borderRadius: '8px',
-              marginBottom: '24px'
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              padding: '24px 32px',
+              borderRadius: '20px 20px 0 0',
+              color: 'white'
             }}>
-              <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>
-                <strong>Projet :</strong> {selectedRequest?.title}
-              </p>
-              <p style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#6b7280' }}>
-                <strong>Client :</strong> {selectedRequest?.client_first_name} {selectedRequest?.client_last_name}
-              </p>
-              <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
-                <strong>Budget indicatif :</strong> {
-                  selectedRequest?.budget_min && selectedRequest?.budget_max ?
-                    `${formatPrice(selectedRequest.budget_min)} - ${formatPrice(selectedRequest.budget_max)}` :
-                    formatPrice(selectedRequest?.budget_max || selectedRequest?.budget_min || 0)
-                }
-              </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h2 style={{
+                    margin: '0 0 8px 0',
+                    fontSize: '28px',
+                    fontWeight: '700'
+                  }}>
+                    💰 Créer un devis
+                  </h2>
+                  <p style={{ margin: 0, opacity: 0.9 }}>
+                    Établissez un devis détaillé pour ce projet
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowQuoteModal(false);
+                    setSelectedRequest(null);
+                    setQuoteData({
+                      amount: '',
+                      description: '',
+                      duration: '',
+                      conditions: '',
+                      validity: '30 jours'
+                    });
+                    setQuoteItems([
+                      {
+                        id: Date.now(),
+                        description: '',
+                        quantity: 1,
+                        unit_price: 0,
+                        total: 0
+                      }
+                    ]);
+                  }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '40px',
+                    height: '40px',
+                    color: 'white',
+                    fontSize: '20px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#374151'
+            <div style={{ padding: '32px' }}>
+              {/* Informations sur le projet */}
+              <div style={{
+                padding: '20px',
+                backgroundColor: '#f8fafc',
+                borderRadius: '12px',
+                marginBottom: '32px',
+                border: '1px solid #e2e8f0'
               }}>
-                Montant du devis (€) *
-              </label>
-              <input
-                type="number"
-                value={quoteData.amount}
-                onChange={(e) => setQuoteData({...quoteData, amount: e.target.value})}
-                placeholder="Ex: 1500"
-                min="0"
-                step="0.01"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  outline: 'none',
-                  transition: 'border-color 0.2s ease',
-                  boxSizing: 'border-box'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
-                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-              />
-            </div>
+                <h3 style={{
+                  margin: '0 0 16px 0',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  color: '#1e293b',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                  <span style={{ marginRight: '8px' }}>📋</span>
+                  Informations du projet
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+                  <div>
+                    <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase' }}>
+                      Projet
+                    </p>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600', color: '#1e293b' }}>
+                      {selectedRequest?.title}
+                    </p>
+                  </div>
+                  <div>
+                    <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase' }}>
+                      Client
+                    </p>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600', color: '#1e293b' }}>
+                      {selectedRequest?.client_first_name} {selectedRequest?.client_last_name}
+                    </p>
+                  </div>
+                  <div>
+                    <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '500', color: '#64748b', textTransform: 'uppercase' }}>
+                      Budget indicatif
+                    </p>
+                    <p style={{ margin: '0', fontSize: '16px', fontWeight: '600', color: '#059669' }}>
+                      {selectedRequest?.budget_min && selectedRequest?.budget_max ?
+                        `${formatPrice(selectedRequest.budget_min)} - ${formatPrice(selectedRequest.budget_max)}` :
+                        formatPrice(selectedRequest?.budget_max || selectedRequest?.budget_min || 0)
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#374151'
+              {/* Détail du devis */}
+              <div style={{
+                marginBottom: '32px'
               }}>
-                Description détaillée des travaux *
-              </label>
-              <textarea
-                value={quoteData.description}
-                onChange={(e) => setQuoteData({...quoteData, description: e.target.value})}
-                placeholder="Détaillez les travaux inclus dans ce devis, les matériaux, la main d'oeuvre..."
-                rows="4"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '8px',
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '24px'
+                }}>
+                  <h3 style={{
+                    margin: '0',
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    color: '#1e293b',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ marginRight: '8px' }}>💼</span>
+                    Détail des prestations
+                  </h3>
+                  
+                  <button
+                    type="button"
+                    onClick={addQuoteItem}
+                    style={{
+                      padding: '8px 16px',
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'transform 0.2s',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                    }}
+                    onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
+                    onMouseLeave={(e) => e.target.style.transform = 'translateY(0)'}
+                  >
+                    + Ajouter une ligne
+                  </button>
+                </div>
+
+                {/* En-têtes des colonnes */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '3fr 1fr 1fr 1fr 60px',
+                  gap: '16px',
+                  padding: '12px 0',
+                  borderBottom: '2px solid #e2e8f0',
+                  marginBottom: '16px',
+                  fontWeight: '600',
                   fontSize: '14px',
-                  outline: 'none',
-                  transition: 'border-color 0.2s ease',
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                  boxSizing: 'border-box'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
-                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-              />
-            </div>
+                  color: '#475569'
+                }}>
+                  <div>Description</div>
+                  <div>Quantité</div>
+                  <div>Prix unitaire (€)</div>
+                  <div>Total (€)</div>
+                  <div></div>
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-              <div>
+                {/* Lignes du devis */}
+                {quoteItems.map((item, index) => (
+                  <div key={item.id} style={{
+                    display: 'grid',
+                    gridTemplateColumns: '3fr 1fr 1fr 1fr 60px',
+                    gap: '16px',
+                    marginBottom: '12px',
+                    alignItems: 'center'
+                  }}>
+                    <input
+                      type="text"
+                      value={item.description}
+                      onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                      placeholder="Description de la prestation"
+                      style={{
+                        padding: '12px',
+                        border: '2px solid #e2e8f0',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        outline: 'none',
+                        transition: 'border-color 0.2s'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
+                      onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                    />
+                    
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                      min="0"
+                      step="0.01"
+                      style={{
+                        padding: '12px',
+                        border: '2px solid #e2e8f0',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        outline: 'none',
+                        transition: 'border-color 0.2s'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
+                      onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                    />
+                    
+                    <input
+                      type="number"
+                      value={item.unit_price}
+                      onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
+                      min="0"
+                      step="0.01"
+                      style={{
+                        padding: '12px',
+                        border: '2px solid #e2e8f0',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        outline: 'none',
+                        transition: 'border-color 0.2s'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
+                      onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                    />
+                    
+                    <div style={{
+                      padding: '12px',
+                      backgroundColor: '#f1f5f9',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      textAlign: 'right',
+                      color: '#059669'
+                    }}>
+                      {item.total.toFixed(2)}€
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => removeQuoteItem(index)}
+                      disabled={quoteItems.length === 1}
+                      style={{
+                        padding: '8px',
+                        backgroundColor: quoteItems.length === 1 ? '#f1f5f9' : '#fee2e2',
+                        color: quoteItems.length === 1 ? '#94a3b8' : '#dc2626',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: quoteItems.length === 1 ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        transition: 'background-color 0.2s'
+                      }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                ))}
+
+                {/* Total général */}
+                <div style={{
+                  borderTop: '2px solid #e2e8f0',
+                  paddingTop: '20px',
+                  marginTop: '20px'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    alignItems: 'center',
+                    gap: '16px'
+                  }}>
+                    <span style={{
+                      fontSize: '20px',
+                      fontWeight: '600',
+                      color: '#1e293b'
+                    }}>
+                      Total du devis :
+                    </span>
+                    <span style={{
+                      fontSize: '28px',
+                      fontWeight: '700',
+                      color: '#059669',
+                      padding: '12px 20px',
+                      backgroundColor: '#d1fae5',
+                      borderRadius: '12px'
+                    }}>
+                      {calculateQuoteTotal().toFixed(2)} €
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Informations complémentaires */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                gap: '24px',
+                marginBottom: '32px'
+              }}>
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#374151'
+                  }}>
+                    Description générale *
+                  </label>
+                  <textarea
+                    value={quoteData.description}
+                    onChange={(e) => setQuoteData({...quoteData, description: e.target.value})}
+                    placeholder="Décrivez les travaux, méthodologie, garanties..."
+                    rows="4"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s ease',
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                      boxSizing: 'border-box'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
+                    onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      Durée estimée
+                    </label>
+                    <input
+                      type="text"
+                      value={quoteData.duration}
+                      onChange={(e) => setQuoteData({...quoteData, duration: e.target.value})}
+                      placeholder="Ex: 3 jours"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        outline: 'none',
+                        transition: 'border-color 0.2s ease',
+                        boxSizing: 'border-box'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
+                      onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      color: '#374151'
+                    }}>
+                      Validité du devis
+                    </label>
+                    <input
+                      type="text"
+                      value={quoteData.validity}
+                      onChange={(e) => setQuoteData({...quoteData, validity: e.target.value})}
+                      placeholder="Ex: 30 jours"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        outline: 'none',
+                        transition: 'border-color 0.2s ease',
+                        boxSizing: 'border-box'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
+                      onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '32px' }}>
                 <label style={{
                   display: 'block',
                   marginBottom: '8px',
@@ -1670,13 +2353,13 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
                   fontWeight: '600',
                   color: '#374151'
                 }}>
-                  Durée estimée
+                  Conditions particulières
                 </label>
-                <input
-                  type="text"
-                  value={quoteData.duration}
-                  onChange={(e) => setQuoteData({...quoteData, duration: e.target.value})}
-                  placeholder="Ex: 3 jours"
+                <textarea
+                  value={quoteData.conditions}
+                  onChange={(e) => setQuoteData({...quoteData, conditions: e.target.value})}
+                  placeholder="Modalités de paiement, conditions de réalisation, garanties..."
+                  rows="3"
                   style={{
                     width: '100%',
                     padding: '12px',
@@ -1685,120 +2368,92 @@ Devis soumis par: ${userProfile?.company_name || userProfile?.first_name + ' ' +
                     fontSize: '14px',
                     outline: 'none',
                     transition: 'border-color 0.2s ease',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
                     boxSizing: 'border-box'
                   }}
                   onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
                   onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                 />
               </div>
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: '#374151'
-                }}>
-                  Validité du devis
-                </label>
-                <input
-                  type="text"
-                  value={quoteData.validity || '30 jours'}
-                  onChange={(e) => setQuoteData({...quoteData, validity: e.target.value})}
-                  placeholder="Ex: 30 jours"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    outline: 'none',
-                    transition: 'border-color 0.2s ease',
-                    boxSizing: 'border-box'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
-                  onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-                />
-              </div>
-            </div>
 
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#374151'
+              {/* Actions */}
+              <div style={{
+                display: 'flex',
+                gap: '16px',
+                justifyContent: 'flex-end',
+                borderTop: '1px solid #e2e8f0',
+                paddingTop: '24px'
               }}>
-                Conditions particulières
-              </label>
-              <textarea
-                value={quoteData.conditions}
-                onChange={(e) => setQuoteData({...quoteData, conditions: e.target.value})}
-                placeholder="Modalités de paiement, conditions de réalisation, garanties..."
-                rows="3"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  outline: 'none',
-                  transition: 'border-color 0.2s ease',
-                  fontFamily: 'inherit',
-                  resize: 'vertical',
-                  boxSizing: 'border-box'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
-                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-              />
-            </div>
-
-            <div style={{
-              display: 'flex',
-              gap: '12px',
-              justifyContent: 'flex-end'
-            }}>
-              <button
-                onClick={() => {
-                  setShowQuoteModal(false);
-                  setSelectedRequest(null);
-                  setQuoteData({
-                    amount: '',
-                    description: '',
-                    duration: '',
-                    conditions: ''
-                  });
-                }}
-                style={{
-                  padding: '12px 24px',
-                  backgroundColor: '#f3f4f6',
-                  color: '#374151',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer'
-                }}
-              >
-                Annuler
-              </button>
-              <button
-                onClick={submitQuote}
-                disabled={!quoteData.amount || !quoteData.description}
-                style={{
-                  padding: '12px 24px',
-                  backgroundColor: (quoteData.amount && quoteData.description) ? '#f59e0b' : '#9ca3af',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: (quoteData.amount && quoteData.description) ? 'pointer' : 'not-allowed'
-                }}
-              >
-                📋 Envoyer le devis
-              </button>
+                <button
+                  onClick={() => {
+                    setShowQuoteModal(false);
+                    setSelectedRequest(null);
+                    setQuoteData({
+                      amount: '',
+                      description: '',
+                      duration: '',
+                      conditions: '',
+                      validity: '30 jours'
+                    });
+                    setQuoteItems([
+                      {
+                        id: Date.now(),
+                        description: '',
+                        quantity: 1,
+                        unit_price: 0,
+                        total: 0
+                      }
+                    ]);
+                  }}
+                  style={{
+                    padding: '14px 28px',
+                    backgroundColor: '#f1f5f9',
+                    color: '#475569',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: '16px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#e2e8f0'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = '#f1f5f9'}
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={submitQuote}
+                  disabled={!quoteData.description || quoteItems.filter(item => item.description.trim() !== '').length === 0}
+                  style={{
+                    padding: '14px 28px',
+                    background: (quoteData.description && quoteItems.filter(item => item.description.trim() !== '').length > 0) 
+                      ? 'linear-gradient(135deg, #f59e0b, #d97706)' 
+                      : 'linear-gradient(135deg, #9ca3af, #6b7280)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: (quoteData.description && quoteItems.filter(item => item.description.trim() !== '').length > 0) ? 'pointer' : 'not-allowed',
+                    minWidth: '200px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (quoteData.description && quoteItems.filter(item => item.description.trim() !== '').length > 0) {
+                      e.target.style.transform = 'translateY(-2px)';
+                      e.target.style.boxShadow = '0 8px 20px rgba(245, 158, 11, 0.4)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.3)';
+                  }}
+                >
+                  📋 Envoyer le devis
+                </button>
+              </div>
             </div>
           </div>
         </div>
